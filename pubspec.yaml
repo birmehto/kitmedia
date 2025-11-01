@@ -1,0 +1,31 @@
+name: kitmedia
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  video_player: ^2.10.0
+  chewie: ^1.13.0
+  permission_handler: ^12.0.1
+  path_provider: ^2.1.5
+  get: ^4.7.2
+  shared_preferences: ^2.5.3
+  video_thumbnail: ^0.5.6
+  flutter_cache_manager: ^3.4.1
+  expressive_loading_indicator: ^0.0.1
+  material_new_shapes: ^1.0.0
+  material_symbols_icons: ^4.2874.0
+  dynamic_color: ^1.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
