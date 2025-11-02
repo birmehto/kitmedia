@@ -1,6 +1,7 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:media_kit/media_kit.dart';
 
 import 'app_binding.dart';
 import 'core/config/app_config.dart';
@@ -12,6 +13,10 @@ import 'routes/app_routes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Media Kit
+  MediaKit.ensureInitialized();
+
   Get.put(ThemeController());
   Get.put(LanguageController());
   runApp(const KitMediaApp());

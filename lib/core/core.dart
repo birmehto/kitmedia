@@ -9,7 +9,7 @@ export 'config/app_config.dart';
 export 'controllers/base_controller.dart';
 // Localization
 export 'localization/app_translations.dart';
-export 'services/cross_platform_video_player.dart';
+
 export 'services/permission_service.dart';
 // Services
 export 'services/snackbar_service.dart';

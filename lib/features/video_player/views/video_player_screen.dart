@@ -3,10 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../controllers/video_player_controller.dart';
-import '../widgets/custom_video_player.dart';
-import '../widgets/video_controls_overlay.dart';
+import '../widgets/video_player_widget.dart';
 
-class VideoPlayerScreen extends StatelessWidget {
+class VideoPlayerScreen extends StatefulWidget {
   const VideoPlayerScreen({
     required this.videoPath,
     required this.videoTitle,
@@ -17,85 +16,50 @@ class VideoPlayerScreen extends StatelessWidget {
   final String videoTitle;
 
   @override
-  Widget build(BuildContext context) {
-    return GetBuilder<VideoPlayerController>(
-      init: VideoPlayerController(),
-      initState: (state) {
-        // Use a post-frame callback to ensure the controller is properly initialized
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final controller = state.controller;
-          if (controller != null) {
-            controller.initializePlayer(videoPath);
-          }
-        });
-      },
-      dispose: (state) {
-        Get.delete<VideoPlayerController>();
-      },
-      builder: (controller) => _VideoPlayerView(
-        controller: controller,
-        videoPath: videoPath,
-        videoTitle: videoTitle,
-      ),
-    );
-  }
+  State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
 
-class _VideoPlayerView extends StatelessWidget {
-  const _VideoPlayerView({
-    required this.controller,
-    required this.videoPath,
-    required this.videoTitle,
-  });
+class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+  late VideoPlayerController _controller;
 
-  final VideoPlayerController controller;
-  final String videoPath;
-  final String videoTitle;
+  @override
+  void initState() {
+    super.initState();
+    _controller = Get.put(VideoPlayerController());
+
+    // Initialize player after widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controller.initializePlayer(widget.videoPath);
+    });
+  }
+
+  @override
+  void dispose() {
+    Get.delete<VideoPlayerController>();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
-      body: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.light.copyWith(
-          statusBarColor: Colors.transparent,
-          systemNavigationBarColor: Colors.black,
-        ),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              // Background gradient
-              _buildBackgroundGradient(),
-
-              // Video Player
-              Center(
-                child: CustomVideoPlayer(
-                  videoPath: videoPath,
-                  videoTitle: videoTitle,
+      body: Obx(() {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: _controller.isFullScreen
+              ? SystemUiOverlayStyle.light.copyWith(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: Colors.transparent,
+                )
+              : SystemUiOverlayStyle.light.copyWith(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: Colors.black,
                 ),
-              ),
-
-              // Controls Overlay
-              VideoControlsOverlay(
-                videoTitle: videoTitle,
-                videoPath: videoPath,
-              ),
-            ],
+          child: VideoPlayerWidget(
+            videoTitle: widget.videoTitle,
+            videoPath: widget.videoPath,
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBackgroundGradient() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: RadialGradient(
-          radius: 1.0,
-          colors: [Color(0xFF0A0A0A), Color(0xFF000000)],
-        ),
-      ),
+        );
+      }),
     );
   }
 }
