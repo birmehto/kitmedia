@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:video_thumbnail/video_thumbnail.dart' as vt;
 
 import '../../../core/utils/logger.dart';
+import '../../../core/widgets/common/loading_indicator.dart';
 import '../models/video_file.dart';
 
 class VideoThumbnail extends StatelessWidget {
@@ -84,7 +85,6 @@ class VideoThumbnail extends StatelessWidget {
               children: [
                 _buildThumbnailContent(snapshot, theme),
                 _buildGradient(theme),
-                _buildPlayOverlay(theme),
                 if (videoFile.duration != null) _buildDurationBadge(theme),
               ],
             );
@@ -124,8 +124,8 @@ class VideoThumbnail extends StatelessWidget {
         child: const SizedBox(
           width: 24,
           height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.5,
+          child: LoadingIndicator(
+            // strokeWidth: 2.5,
             color: Colors.white,
           ),
         ),
@@ -175,35 +175,6 @@ class VideoThumbnail extends StatelessWidget {
             theme.colorScheme.scrim.withValues(alpha: 0.3),
           ],
           stops: const [0.6, 1.0],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlayOverlay(ThemeData theme) {
-    return Center(
-      child: Container(
-        padding: EdgeInsets.all(width > 80 ? 10 : 8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface.withValues(alpha: 0.9),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: theme.colorScheme.primary.withValues(alpha: 0.3),
-            width: 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: theme.colorScheme.shadow.withValues(alpha: 0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Icon(
-          Symbols.play_arrow_rounded,
-          color: theme.colorScheme.primary,
-          size: width > 80 ? 24 : 20,
-          fill: 1,
         ),
       ),
     );

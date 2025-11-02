@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../controllers/video_player_controller.dart';
@@ -17,60 +18,82 @@ class VideoPlayerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Initialize the controller
-    Get.put(VideoPlayerController());
-
-    return _VideoPlayerWidget(videoPath: videoPath, videoTitle: videoTitle);
+    return GetBuilder<VideoPlayerController>(
+      init: VideoPlayerController(),
+      initState: (state) {
+        // Use a post-frame callback to ensure the controller is properly initialized
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final controller = state.controller;
+          if (controller != null) {
+            controller.initializePlayer(videoPath);
+          }
+        });
+      },
+      dispose: (state) {
+        Get.delete<VideoPlayerController>();
+      },
+      builder: (controller) => _VideoPlayerView(
+        controller: controller,
+        videoPath: videoPath,
+        videoTitle: videoTitle,
+      ),
+    );
   }
 }
 
-class _VideoPlayerWidget extends StatefulWidget {
-  const _VideoPlayerWidget({required this.videoPath, required this.videoTitle});
+class _VideoPlayerView extends StatelessWidget {
+  const _VideoPlayerView({
+    required this.controller,
+    required this.videoPath,
+    required this.videoTitle,
+  });
 
+  final VideoPlayerController controller;
   final String videoPath;
   final String videoTitle;
-
-  @override
-  State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
-}
-
-class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
-  late final VideoPlayerController controller;
-
-  @override
-  void initState() {
-    super.initState();
-    controller = Get.find<VideoPlayerController>();
-    controller.initializePlayer(widget.videoPath);
-  }
-
-  @override
-  void dispose() {
-    Get.delete<VideoPlayerController>();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Video Player
-            Center(
-              child: CustomVideoPlayer(
-                videoPath: widget.videoPath,
-                videoTitle: widget.videoTitle,
-              ),
-            ),
+      extendBodyBehindAppBar: true,
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light.copyWith(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.black,
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              // Background gradient
+              _buildBackgroundGradient(),
 
-            // Controls Overlay
-            VideoControlsOverlay(
-              videoTitle: widget.videoTitle,
-              videoPath: widget.videoPath,
-            ),
-          ],
+              // Video Player
+              Center(
+                child: CustomVideoPlayer(
+                  videoPath: videoPath,
+                  videoTitle: videoTitle,
+                ),
+              ),
+
+              // Controls Overlay
+              VideoControlsOverlay(
+                videoTitle: videoTitle,
+                videoPath: videoPath,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackgroundGradient() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: RadialGradient(
+          radius: 1.0,
+          colors: [Color(0xFF0A0A0A), Color(0xFF000000)],
         ),
       ),
     );

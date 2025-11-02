@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../core/config/app_config.dart';
+import '../../../core/core.dart';
 import '../controllers/language_controller.dart';
 import '../controllers/theme_controller.dart';
 
@@ -11,7 +11,6 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeController themeController = Get.find<ThemeController>();
     final LanguageController languageController =
         Get.find<LanguageController>();
     final theme = Theme.of(context);
@@ -26,7 +25,10 @@ class SettingsScreen extends StatelessWidget {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: Responsive.getPadding(context).copyWith(
+          top: UIConstants.spacingLarge,
+          bottom: UIConstants.spacingLarge,
+        ),
         children: [
           // Language section with expressive card
           _buildExpressiveSection(
@@ -48,7 +50,7 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: UIConstants.spacingXXLarge),
 
           // Theme section with expressive card
           _buildExpressiveSection(
@@ -56,19 +58,30 @@ class SettingsScreen extends StatelessWidget {
             'theme'.tr,
             Symbols.palette_rounded,
             [
-              Obx(
-                () => _buildExpressiveListTile(
+              GetBuilder<ThemeController>(
+                builder: (controller) => _buildExpressiveListTile(
                   context,
                   icon: Symbols.brightness_6_rounded,
                   title: 'theme'.tr,
-                  subtitle: _getThemeModeText(themeController.themeMode),
-                  onTap: () => _showThemeDialog(context, themeController),
+                  subtitle: controller.themeModeString,
+                  onTap: () => _showThemeDialog(context, controller),
+                ),
+              ),
+              GetBuilder<ThemeController>(
+                builder: (controller) => _buildExpressiveListTile(
+                  context,
+                  icon: Symbols.palette_rounded,
+                  title: 'Dynamic Colors',
+                  subtitle: controller.isDynamicColorEnabled
+                      ? 'Enabled'
+                      : 'Disabled',
+                  onTap: () => controller.toggleDynamicColor(),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: UIConstants.spacingXXLarge),
 
           // About section with expressive card
           _buildExpressiveSection(context, 'About', Symbols.info_rounded, [
@@ -100,48 +113,52 @@ class SettingsScreen extends StatelessWidget {
   ) {
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Card(
-        elevation: 2,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Section header with icon
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      sectionIcon,
-                      color: theme.colorScheme.onPrimaryContainer,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    title,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
+    return UIFactory.buildCard(
+      theme: theme,
+      elevation: UIConstants.elevationLow,
+      margin: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header with icon
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              UIConstants.spacingXLarge,
+              UIConstants.spacingXLarge,
+              UIConstants.spacingXLarge,
+              UIConstants.spacingSmall,
             ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(UIConstants.spacingSmall),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: UIConstants.borderRadiusMediumAll,
+                  ),
+                  child: Icon(
+                    sectionIcon,
+                    color: theme.colorScheme.onPrimaryContainer,
+                    size: UIConstants.iconSizeMedium,
+                  ),
+                ),
+                const SizedBox(width: UIConstants.spacingMedium),
+                Text(
+                  title,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
 
-            // Section content
-            ...children,
+          // Section content
+          ...children,
 
-            const SizedBox(height: 8),
-          ],
-        ),
+          const SizedBox(height: UIConstants.spacingSmall),
+        ],
       ),
     );
   }
@@ -158,15 +175,15 @@ class SettingsScreen extends StatelessWidget {
 
     return ListTile(
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(UIConstants.spacingSmall),
         decoration: BoxDecoration(
           color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(UIConstants.borderRadiusSmall),
         ),
         child: Icon(
           icon,
           color: theme.colorScheme.onSecondaryContainer,
-          size: 20,
+          size: UIConstants.iconSizeMedium,
         ),
       ),
       title: Text(
@@ -188,19 +205,11 @@ class SettingsScreen extends StatelessWidget {
             )
           : null,
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: UIConstants.spacingXLarge,
+        vertical: UIConstants.spacingXSmall,
+      ),
     );
-  }
-
-  String _getThemeModeText(ThemeMode themeMode) {
-    switch (themeMode) {
-      case ThemeMode.light:
-        return 'light_theme'.tr;
-      case ThemeMode.dark:
-        return 'dark_theme'.tr;
-      case ThemeMode.system:
-        return 'system_theme'.tr;
-    }
   }
 
   void _showLanguageDialog(
@@ -214,18 +223,18 @@ class SettingsScreen extends StatelessWidget {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(UIConstants.spacingSmall),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: UIConstants.borderRadiusMediumAll,
               ),
               child: Icon(
                 Symbols.language_rounded,
                 color: theme.colorScheme.onPrimaryContainer,
-                size: 20,
+                size: UIConstants.iconSizeMedium,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: UIConstants.spacingMedium),
             Text(
               'language'.tr,
               style: theme.textTheme.headlineSmall?.copyWith(
@@ -301,18 +310,18 @@ class SettingsScreen extends StatelessWidget {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(UIConstants.spacingSmall),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: UIConstants.borderRadiusMediumAll,
               ),
               child: Icon(
                 Symbols.palette_rounded,
                 color: theme.colorScheme.onPrimaryContainer,
-                size: 20,
+                size: UIConstants.iconSizeMedium,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: UIConstants.spacingMedium),
             Text(
               'theme'.tr,
               style: theme.textTheme.headlineSmall?.copyWith(
@@ -370,21 +379,21 @@ class SettingsScreen extends StatelessWidget {
       final isSelected = controller.themeMode == themeMode;
       return ListTile(
         leading: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(UIConstants.spacingSmall),
           decoration: BoxDecoration(
             color: isSelected
                 ? theme.colorScheme.primaryContainer
                 : theme.colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.5,
                   ),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(UIConstants.borderRadiusSmall),
           ),
           child: Icon(
             icon,
             color: isSelected
                 ? theme.colorScheme.onPrimaryContainer
                 : theme.colorScheme.onSurfaceVariant,
-            size: 20,
+            size: UIConstants.iconSizeMedium,
           ),
         ),
         title: Text(

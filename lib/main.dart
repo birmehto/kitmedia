@@ -24,35 +24,40 @@ class KitMediaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
-        return GetMaterialApp(
-          title: AppConfig.appName,
-          theme: AppTheme.lightTheme.copyWith(
-            colorScheme: darkDynamic ?? AppTheme.lightTheme.colorScheme,
-          ),
-          darkTheme: AppTheme.darkTheme.copyWith(
-            colorScheme: darkDynamic ?? AppTheme.darkTheme.colorScheme,
-          ),
-          // GetX translations
-          translations: AppTranslations(),
-          locale: const Locale('en'),
-          fallbackLocale: const Locale('en'),
-          // GetX routes
-          initialRoute: AppRoutes.home,
-          getPages: AppRoutes.routes,
-          initialBinding: AppBindings(),
-          debugShowCheckedModeBanner: false,
-          // Enhanced navigation with Material 3 expressive theming
-          builder: (context, child) {
-            if (child == null) return const SizedBox.shrink();
-            return MediaQuery(
-              data:
-                  MediaQuery.maybeOf(
-                    context,
-                  )?.copyWith(textScaler: TextScaler.noScaling) ??
-                  const MediaQueryData().copyWith(
-                    textScaler: TextScaler.noScaling,
-                  ),
-              child: child,
+        return GetBuilder<ThemeController>(
+          builder: (themeController) {
+            return GetMaterialApp(
+              title: AppConfig.appName,
+              theme: AppTheme.buildLightTheme(
+                themeController.isDynamicColorEnabled ? lightDynamic : null,
+              ),
+              darkTheme: AppTheme.buildDarkTheme(
+                themeController.isDynamicColorEnabled ? darkDynamic : null,
+              ),
+              themeMode: themeController.themeMode,
+              // GetX translations
+              translations: AppTranslations(),
+              locale: const Locale('en'),
+              fallbackLocale: const Locale('en'),
+              // GetX routes
+              initialRoute: AppRoutes.home,
+              getPages: AppRoutes.routes,
+              initialBinding: AppBindings(),
+              debugShowCheckedModeBanner: false,
+              // Enhanced navigation with Material 3 expressive theming
+              builder: (context, child) {
+                if (child == null) return const SizedBox.shrink();
+                return MediaQuery(
+                  data:
+                      MediaQuery.maybeOf(
+                        context,
+                      )?.copyWith(textScaler: TextScaler.noScaling) ??
+                      const MediaQueryData().copyWith(
+                        textScaler: TextScaler.noScaling,
+                      ),
+                  child: child,
+                );
+              },
             );
           },
         );

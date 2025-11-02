@@ -6,31 +6,40 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:video_player/video_player.dart' as vp;
+import 'package:wakelock_plus/wakelock_plus.dart';
 
-import '../../../core/services/cross_platform_video_player.dart';
-import '../../../core/utils/logger.dart';
+import '../../../core/core.dart';
+import '../../../core/services/system_controls.dart';
 
-class VideoPlayerController extends GetxController
+class VideoPlayerController extends BaseController
     with GetTickerProviderStateMixin {
+  // Core video player components
   BaseVideoPlayerController? _baseController;
   vp.VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
+
+  // Animation controllers
   late AnimationController _controlsAnimationController;
   late Animation<double> _controlsAnimation;
 
+  // System controls service
+  late SystemControls _systemControls;
+
+  // UI state
   final RxBool _isControlsVisible = true.obs;
-  final RxBool _isLoading = true.obs;
-  final RxString _errorMessage = ''.obs;
   final RxBool _isInitialized = false.obs;
   final RxBool _isFullScreen = false.obs;
+  final RxBool _isBuffering = false.obs;
+
+  // Media controls
   final RxDouble _brightness = 0.5.obs;
   final RxDouble _volume = 1.0.obs;
   final RxDouble _playbackSpeed = 1.0.obs;
-  final RxBool _isBuffering = false.obs;
+
+  // Overlay controls
   final RxBool _showVolumeSlider = false.obs;
   final RxBool _showBrightnessSlider = false.obs;
   final RxBool _showSpeedSelector = false.obs;
-  final RxString _videoQuality = 'Auto'.obs;
 
   // Getters
   BaseVideoPlayerController? get baseController => _baseController;
@@ -38,10 +47,7 @@ class VideoPlayerController extends GetxController
   ChewieController? get chewieController => _chewieController;
   Animation<double> get controlsAnimation => _controlsAnimation;
   bool get isControlsVisible => _isControlsVisible.value;
-  bool get isLoading => _isLoading.value;
-  String get errorMessage => _errorMessage.value;
   bool get isInitialized => _isInitialized.value;
-  bool get hasError => _errorMessage.value.isNotEmpty;
   bool get isFullScreen => _isFullScreen.value;
   double get brightness => _brightness.value;
   double get volume => _volume.value;
@@ -50,7 +56,6 @@ class VideoPlayerController extends GetxController
   bool get showVolumeSlider => _showVolumeSlider.value;
   bool get showBrightnessSlider => _showBrightnessSlider.value;
   bool get showSpeedSelector => _showSpeedSelector.value;
-  String get videoQuality => _videoQuality.value;
 
   // Available playback speeds
   final List<double> playbackSpeeds = [
@@ -64,8 +69,8 @@ class VideoPlayerController extends GetxController
     2.0,
   ];
 
-  // Available video qualities
-  final List<String> videoQualities = [
+  // Constants
+  static const List<String> videoQualities = [
     'Auto',
     '144p',
     '240p',
@@ -79,8 +84,42 @@ class VideoPlayerController extends GetxController
   void onInit() {
     super.onInit();
     _initializeAnimations();
-    // Initialize cross-platform video player
+    _initializeSystemControls();
     CrossPlatformVideoPlayer.initialize();
+    _enableWakelock();
+  }
+
+  Future<void> _enableWakelock() async {
+    try {
+      await WakelockPlus.enable();
+    } catch (e) {
+      appLog('Could not enable wakelock: $e', color: 'yellow');
+    }
+  }
+
+  Future<void> _initializeSystemControls() async {
+    await executeSilently(() async {
+      _systemControls = SystemControls.instance;
+      await _systemControls.initialize();
+
+      _brightness.value = _systemControls.currentBrightness;
+      _volume.value = _systemControls.currentVolume;
+
+      // Check if controls are available
+      final hasBrightness = await _systemControls.hasBrightnessControl;
+      final hasVolume = await _systemControls.hasVolumeControl;
+
+      appLog(
+        'System controls available - Brightness: $hasBrightness, Volume: $hasVolume',
+      );
+    });
+
+    // Use fallback values if initialization failed
+    if (hasError) {
+      _brightness.value = 0.5;
+      _volume.value = 0.5;
+      clearError();
+    }
   }
 
   void _initializeAnimations() {
@@ -98,68 +137,78 @@ class VideoPlayerController extends GetxController
   }
 
   Future<void> initializePlayer(String videoPath) async {
-    try {
-      _isLoading.value = true;
-      _errorMessage.value = '';
-      _isInitialized.value = false;
-
+    await executeWithLoading(() async {
       final file = File(videoPath);
       if (!file.existsSync()) {
         throw Exception('Video file not found: $videoPath');
       }
 
-      appLog('Loading video file: $videoPath');
-
-      // Create appropriate controller based on platform
-      _baseController = VideoPlayerControllerFactory.create();
-      await _baseController!.initialize(videoPath);
-
-      // For mobile platforms, we still use Chewie for UI
-      if (CrossPlatformVideoPlayer.isMobile &&
-          _baseController is MobileVideoPlayerController) {
-        final mobileController = _baseController as MobileVideoPlayerController;
-        _videoPlayerController = mobileController.videoPlayerController;
-
-        _chewieController = ChewieController(
-          videoPlayerController: _videoPlayerController!,
-          showControls: false, // We'll use custom controls
-          aspectRatio: _videoPlayerController!.value.aspectRatio,
-          allowFullScreen: false, // We'll handle fullscreen manually
-          allowPlaybackSpeedChanging: false, // We'll handle this manually
-          errorBuilder: (context, errorMessage) {
-            return ColoredBox(
-              color: Colors.black,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Symbols.error, color: Colors.white, size: 48),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error: $errorMessage',
-                      style: const TextStyle(color: Colors.white),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-
-        // Listen to video player state changes
-        _videoPlayerController!.addListener(_videoPlayerListener);
-      }
-
-      _isInitialized.value = true;
-      _isLoading.value = false;
-      hideControlsAfterDelay();
-    } catch (e) {
-      appLog('Video player error: $e');
-      _isLoading.value = false;
-      _errorMessage.value = e.toString();
       _isInitialized.value = false;
-    }
+
+      try {
+        // Create and initialize video controller
+        _baseController = VideoPlayerControllerFactory.create();
+        await _baseController!.initialize(videoPath);
+
+        // Setup Chewie for mobile platforms
+        if (CrossPlatformVideoPlayer.isMobile &&
+            _baseController is MobileVideoPlayerController) {
+          _setupMobilePlayer();
+        }
+
+        _isInitialized.value = true;
+        hideControlsAfterDelay();
+      } catch (e) {
+        // Handle various platform-specific errors
+        final errorString = e.toString().toLowerCase();
+        if (errorString.contains('channel-error') ||
+            errorString.contains('platformexception') ||
+            errorString.contains('missingpluginexception') ||
+            errorString.contains('sqflite') ||
+            errorString.contains('database')) {
+          throw Exception(
+            'Video player initialization failed. This may be due to missing platform dependencies or running on an emulator.',
+          );
+        }
+        rethrow;
+      }
+    });
+  }
+
+  void _setupMobilePlayer() {
+    final mobileController = _baseController as MobileVideoPlayerController;
+    _videoPlayerController = mobileController.videoPlayerController;
+
+    _chewieController = ChewieController(
+      videoPlayerController: _videoPlayerController!,
+      showControls: false,
+      aspectRatio: _videoPlayerController!.value.aspectRatio,
+      allowFullScreen: false,
+      allowPlaybackSpeedChanging: false,
+      errorBuilder: _buildErrorWidget,
+    );
+
+    _videoPlayerController!.addListener(_videoPlayerListener);
+  }
+
+  Widget _buildErrorWidget(BuildContext context, String errorMessage) {
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Symbols.error, color: Colors.white, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'Error: $errorMessage',
+              style: const TextStyle(color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void toggleControls() {
@@ -220,19 +269,51 @@ class VideoPlayerController extends GetxController
     }
   }
 
-  void setBrightness(double value) {
-    _brightness.value = value.clamp(0.0, 1.0);
-    // Apply brightness to screen (this would need platform-specific implementation)
+  Future<void> setBrightness(double value) async {
+    final clampedValue = value.clamp(0.0, 1.0);
+    _brightness.value = clampedValue;
+
+    await executeSilently(() async {
+      await _systemControls.setBrightness(clampedValue);
+    });
+
+    _showBrightnessSlider.value = true;
+    _hideSliderAfterDelay();
   }
 
-  void setVolume(double value) {
-    _volume.value = value.clamp(0.0, 1.0);
-    _baseController?.setVolume(_volume.value);
+  Future<void> setVolume(double value) async {
+    final clampedValue = value.clamp(0.0, 1.0);
+    _volume.value = clampedValue;
+
+    // Try system volume first, fallback to video player volume
+    await executeSilently(() async {
+      await _systemControls.setVolume(clampedValue);
+    });
+
+    // Always set video player volume as fallback
+    _baseController?.setVolume(clampedValue);
+
+    _showVolumeSlider.value = true;
+    _hideSliderAfterDelay();
   }
 
   void setPlaybackSpeed(double speed) {
     _playbackSpeed.value = speed;
     _baseController?.setPlaybackSpeed(speed);
+  }
+
+  /// Mute/unmute volume
+  Future<void> toggleMute() async {
+    if (_volume.value > 0) {
+      // Mute volume
+      await _systemControls.muteVolume();
+      _volume.value = 0.0;
+      _baseController?.setVolume(0.0);
+    } else {
+      // Restore volume (default to 50% if was 0)
+      const restoreVolume = 0.5;
+      await setVolume(restoreVolume);
+    }
   }
 
   void toggleVolumeSlider() {
@@ -288,14 +369,21 @@ class VideoPlayerController extends GetxController
     seekTo(position);
   }
 
-  void adjustBrightnessByGesture(double delta) {
+  Future<void> adjustBrightnessByGesture(double delta) async {
     final newBrightness = (_brightness.value + delta).clamp(0.0, 1.0);
-    setBrightness(newBrightness);
+    await setBrightness(newBrightness);
   }
 
-  void adjustVolumeByGesture(double delta) {
+  Future<void> adjustVolumeByGesture(double delta) async {
     final newVolume = (_volume.value + delta).clamp(0.0, 1.0);
-    setVolume(newVolume);
+    await setVolume(newVolume);
+  }
+
+  void _hideSliderAfterDelay() {
+    Future.delayed(const Duration(seconds: 2), () {
+      _showBrightnessSlider.value = false;
+      _showVolumeSlider.value = false;
+    });
   }
 
   void seekByGesture(double delta) {
@@ -313,13 +401,6 @@ class VideoPlayerController extends GetxController
     } else {
       seekTo(newPosition);
     }
-  }
-
-  String formatFileSize(int bytes) {
-    if (bytes <= 0) return '0 B';
-    const suffixes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    final i = (bytes.bitLength - 1) ~/ 10;
-    return '${(bytes / (1 << (i * 10))).toStringAsFixed(1)} ${suffixes[i]}';
   }
 
   void retryInitialization(String videoPath) {
@@ -342,6 +423,11 @@ class VideoPlayerController extends GetxController
 
   @override
   void onClose() {
+    _onCloseAsync();
+    super.onClose();
+  }
+
+  Future<void> _onCloseAsync() async {
     // Reset system UI when closing
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
@@ -352,8 +438,21 @@ class VideoPlayerController extends GetxController
       DeviceOrientation.portraitDown,
     ]);
 
+    // Disable wakelock when closing video player
+    _disableWakelock();
+
+    // Dispose system controls
+    await _systemControls.dispose();
+
     _controlsAnimationController.dispose();
     _disposeControllers();
-    super.onClose();
+  }
+
+  Future<void> _disableWakelock() async {
+    try {
+      await WakelockPlus.disable();
+    } catch (e) {
+      appLog('Could not disable wakelock: $e', color: 'yellow');
+    }
   }
 }

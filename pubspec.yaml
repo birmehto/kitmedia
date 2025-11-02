@@ -21,6 +21,12 @@ dependencies:
   material_new_shapes: ^1.0.0
   material_symbols_icons: ^4.2874.0
   dynamic_color: ^1.7.0
+  volume_controller: ^3.4.0
+  screen_brightness: ^2.1.7
+  device_info_plus: ^12.2.0
+  mime: ^2.0.0
+  wakelock_plus: ^1.4.0
+  
 
 dev_dependencies:
   flutter_test:

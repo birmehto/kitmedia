@@ -1,20 +1,18 @@
 import 'package:get/get.dart';
 
-import '../../../core/services/permission_service.dart';
+import '../../../core/controllers/base_controller.dart';
+
 import '../../../core/services/video_scanner.dart';
 import '../../../core/utils/logger.dart';
 import '../models/video_file.dart';
+import '../services/video_delete_service.dart';
 
-class VideoController extends GetxController {
+class VideoController extends BaseController {
   final RxList<VideoFile> _videos = <VideoFile>[].obs;
   final RxString _searchQuery = ''.obs;
-  final RxBool _isLoading = false.obs;
-  final RxString _errorMessage = ''.obs;
 
   List<VideoFile> get videos => _videos;
   String get searchQuery => _searchQuery.value;
-  bool get isLoading => _isLoading.value;
-  String get errorMessage => _errorMessage.value;
 
   List<VideoFile> get filteredVideos {
     if (_searchQuery.value.isEmpty) {
@@ -28,30 +26,30 @@ class VideoController extends GetxController {
     }).toList();
   }
 
-  final PermissionService _permissionService = PermissionService();
   final VideoScanner _videoScanner = VideoScanner();
+  final VideoDeleteService _deleteService = VideoDeleteService();
 
   Future<void> scanVideos() async {
-    _isLoading.value = true;
-    _errorMessage.value = '';
+    await executeWithLoading(() async {
+      // Debug permission status
+      final permissionStatus = await _videoScanner.getPermissionStatus();
+      appLog('🔍 Permission status: $permissionStatus');
 
-    try {
-      final hasPermission = await _permissionService.requestStoragePermission();
-
-      if (!hasPermission) {
-        _errorMessage.value = 'Storage permission denied';
-        return;
+      // Test directory access
+      final accessResults = await _videoScanner.testDirectoryAccess();
+      appLog('🔍 Directory access test:');
+      for (final result in accessResults) {
+        appLog('  $result');
       }
 
+      // Scan for videos (this will handle permissions internally)
       final videos = await _videoScanner.scanForVideos();
       _videos.assignAll(videos);
       appLog('Found ${videos.length} videos');
       appLog('video names: ${videos.map((e) => e.name).toList()}');
-    } catch (error) {
-      _errorMessage.value = error.toString();
-    } finally {
-      _isLoading.value = false;
-    }
+
+      return videos;
+    }, successMessage: 'Found ${_videos.length} videos');
   }
 
   void updateSearchQuery(String query) {
@@ -62,12 +60,16 @@ class VideoController extends GetxController {
     _searchQuery.value = '';
   }
 
+  Future<void> deleteVideo(VideoFile video) async {
+    final success = await _deleteService.deleteVideo(video);
+    if (success) {
+      _videos.remove(video);
+      appLog('Video removed from list: ${video.name}');
+    }
+  }
+
   @override
   Future<void> refresh() async {
     await scanVideos();
-  }
-
-  void clearError() {
-    _errorMessage.value = '';
   }
 }
