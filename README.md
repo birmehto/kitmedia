@@ -53,7 +53,7 @@ KitMedia Player is a sleek video player app that automatically discovers and org
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/kitmedia.git
+git clone https://github.com/Birmehto/kitmedia.git
 cd kitmedia
 
 # Install dependencies

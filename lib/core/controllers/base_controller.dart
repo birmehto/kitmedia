@@ -60,7 +60,7 @@ abstract class BaseController extends GetxController {
       final result = await operation();
 
       if (successMessage != null) {
-        showSuccess(successMessage);
+        appLog(successMessage);
       }
 
       return result;

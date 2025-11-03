@@ -63,7 +63,6 @@ class UnifiedVideoCard extends StatelessWidget {
               if (showMetadata) ...[
                 const SizedBox(height: UIConstants.spacingMedium),
                 VideoMetadataRow(
-                  duration: video.durationString,
                   size: video.sizeString,
                   date: video.lastModified,
                 ),
@@ -134,7 +133,6 @@ class UnifiedVideoCard extends StatelessWidget {
                 if (showMetadata) ...[
                   const Spacer(),
                   VideoMetadataRow(
-                    duration: video.durationString,
                     size: video.sizeString,
                     isCompact: true,
                   ),

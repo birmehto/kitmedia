@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:get/get.dart';
 
 import '../../../core/controllers/base_controller.dart';
-
 import '../../../core/services/video_scanner.dart';
 import '../../../core/utils/logger.dart';
 import '../models/video_file.dart';
@@ -75,11 +74,7 @@ class VideoController extends BaseController {
         // File doesn't exist, remove it from list anyway
         _videos.remove(video);
         appLog('Removed non-existent video from list: ${video.name}');
-        Get.snackbar(
-          'Info',
-          'File was already deleted',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+
         break;
       case DeleteResult.permissionDenied:
       case DeleteResult.otherError:
@@ -102,11 +97,7 @@ class VideoController extends BaseController {
 
       // Show user feedback if significant cleanup happened
       if (removedCount > 3) {
-        Get.snackbar(
-          'Cleanup',
-          'Removed $removedCount missing files from list',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+        appLog('Removed $removedCount missing files from list');
       }
     }
   }
@@ -139,18 +130,8 @@ class VideoController extends BaseController {
     if (removedCount > 0) {
       _videos.assignAll(existingVideos);
       appLog('🧹 Removed $removedCount non-existent files from list');
-
-      Get.snackbar(
-        'Cleanup Complete',
-        'Removed $removedCount missing files from your video list',
-        snackPosition: SnackPosition.BOTTOM,
-      );
     } else {
-      Get.snackbar(
-        'All Good',
-        'All videos in your list exist on the device',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      appLog('All videos in your list exist on the device');
     }
   }
 
