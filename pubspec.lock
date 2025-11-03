@@ -25,6 +25,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.13.0"
+  better_player_plus:
+    dependency: "direct main"
+    description:
+      name: better_player_plus
+      sha256: "6f571f00645eeca7dea6b20cd35482c0d109ab779c4b4057d178d7afd50a6222"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.2"
   boolean_selector:
     dependency: transitive
     description:
@@ -73,6 +81,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.6"
+  csslib:
+    dependency: transitive
+    description:
+      name: csslib
+      sha256: "09bad715f418841f976c77db72d5398dc1253c21fb9c0c7f0b0b985860b2d58e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   dbus:
     dependency: transitive
     description:
@@ -174,6 +190,11 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  flutter_localizations:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -184,6 +205,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_widget_from_html_core:
+    dependency: transitive
+    description:
+      name: flutter_widget_from_html_core
+      sha256: "1120ee6ed3509ceff2d55aa6c6cbc7b6b1291434422de2411b5a59364dd6ff03"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.17.0"
   get:
     dependency: "direct main"
     description:
@@ -200,6 +229,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.3"
+  html:
+    dependency: transitive
+    description:
+      name: html
+      sha256: "6d1264f2dffa1b1101c25a91dff0dc2daee4c18e87cd8538729773c073dbf602"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.15.6"
   http:
     dependency: transitive
     description:
@@ -224,6 +261,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.5.4"
+  intl:
+    dependency: transitive
+    description:
+      name: intl
+      sha256: "3df61194eb431efc39c4ceba583b95633a403f46c9fd341e550ce0bfa50e9aa5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.20.2"
   leak_tracker:
     dependency: transitive
     description:
@@ -256,6 +301,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  logging:
+    dependency: transitive
+    description:
+      name: logging
+      sha256: c8245ada5f1717ed44271ed1c26b8ce85ca3228fd2ffdb75468ab01979309d61
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.3.0"
   matcher:
     dependency: transitive
     description:
@@ -797,6 +850,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.5.6"
+  visibility_detector:
+    dependency: transitive
+    description:
+      name: visibility_detector
+      sha256: dd5cc11e13494f432d15939c3aa8ae76844c42b723398643ce9addb88a5ed420
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.0+2"
   vm_service:
     dependency: transitive
     description:

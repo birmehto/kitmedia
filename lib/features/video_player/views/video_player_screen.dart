@@ -46,17 +46,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       body: Obx(() {
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: _controller.isFullScreen
-              ? SystemUiOverlayStyle.light.copyWith(
+              ? SystemUiOverlayStyle.dark.copyWith(
                   statusBarColor: Colors.transparent,
                   systemNavigationBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.light,
+                  systemNavigationBarIconBrightness: Brightness.light,
                 )
-              : SystemUiOverlayStyle.light.copyWith(
+              : SystemUiOverlayStyle.dark.copyWith(
                   statusBarColor: Colors.transparent,
                   systemNavigationBarColor: Colors.black,
+                  statusBarIconBrightness: Brightness.light,
+                  systemNavigationBarIconBrightness: Brightness.light,
                 ),
-          child: VideoPlayerWidget(
-            videoTitle: widget.videoTitle,
-            videoPath: widget.videoPath,
+          child: SafeArea(
+            top: false,
+            bottom: false,
+            child: VideoPlayerWidget(
+              videoTitle: widget.videoTitle,
+              videoPath: widget.videoPath,
+            ),
           ),
         );
       }),
