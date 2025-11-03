@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../core/core.dart';
+import '../../../core/config/app_config.dart';
+import '../../../core/theme/ui_constants.dart';
+import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/common/ui_factory.dart';
 import '../controllers/language_controller.dart';
 import '../controllers/theme_controller.dart';
 

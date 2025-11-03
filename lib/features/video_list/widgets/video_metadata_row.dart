@@ -5,14 +5,12 @@ import '../../../core/utils/date_formatter.dart';
 
 class VideoMetadataRow extends StatelessWidget {
   const VideoMetadataRow({
-    required this.duration,
     required this.size,
     this.date,
     this.isCompact = false,
     super.key,
   });
 
-  final String duration;
   final String size;
   final DateTime? date;
   final bool isCompact;
@@ -29,17 +27,9 @@ class VideoMetadataRow extends StatelessWidget {
     );
 
     return Wrap(
-      spacing: 16,
+      spacing: 10,
       runSpacing: 8,
       children: [
-        if (duration.isNotEmpty)
-          _MetadataChip(
-            icon: Symbols.schedule_rounded,
-            text: duration,
-            iconSize: iconSize,
-            textStyle: textStyle,
-            theme: theme,
-          ),
         _MetadataChip(
           icon: Symbols.storage_rounded,
           text: size,

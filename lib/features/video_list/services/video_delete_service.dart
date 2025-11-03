@@ -19,11 +19,6 @@ class VideoDeleteService {
       final exists = await _nativeService.fileExists(video.path);
       if (!exists) {
         appLog('✅ File does not exist (native check): ${video.path}');
-        Get.snackbar(
-          'Info',
-          'File was already deleted or moved',
-          snackPosition: SnackPosition.BOTTOM,
-        );
         return DeleteResult.fileNotFound;
       }
 
@@ -40,12 +35,7 @@ class VideoDeleteService {
       try {
         needsPermission = await _nativeService.needsDeletePermission();
         if (needsPermission) {
-          Get.snackbar(
-            'Permission Required',
-            'Android will ask for permission to delete this video',
-            snackPosition: SnackPosition.BOTTOM,
-            duration: const Duration(seconds: 2),
-          );
+          appLog('Android will ask for permission to delete this video');
         }
       } catch (e) {
         appLog(
@@ -62,11 +52,7 @@ class VideoDeleteService {
         appLog(
           '✅ Successfully deleted video using native method: ${video.name}',
         );
-        Get.snackbar(
-          'Success',
-          'Video deleted successfully',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+
         return DeleteResult.success;
       } else {
         appLog(
@@ -79,37 +65,21 @@ class VideoDeleteService {
 
         if (stillExists) {
           if (needsPermission) {
-            Get.snackbar(
-              'Permission Denied',
-              'Video deletion was cancelled - you denied permission',
-              snackPosition: SnackPosition.BOTTOM,
-            );
+            appLog('Permission Denied');
           } else {
-            Get.snackbar(
-              'Error',
-              'Cannot delete this video - it may be protected or in use',
-              snackPosition: SnackPosition.BOTTOM,
-            );
+            appLog('Cannot delete this video - it may be protected or in use');
           }
           return DeleteResult.permissionDenied;
         } else {
           // File doesn't exist anymore, so deletion actually succeeded
           appLog('✅ File was actually deleted despite false result');
-          Get.snackbar(
-            'Success',
-            'Video deleted successfully',
-            snackPosition: SnackPosition.BOTTOM,
-          );
+
           return DeleteResult.success;
         }
       }
     } catch (e) {
       appLog('❌ Unexpected error in native deletion: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to delete video: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      appLog('Failed to delete video: ${e.toString()}');
       return DeleteResult.otherError;
     }
   }

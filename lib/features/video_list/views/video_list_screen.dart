@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../core/core.dart';
+import '../../../core/theme/ui_constants.dart';
+import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/common/empty_state.dart';
+import '../../../core/widgets/common/loading_indicator.dart';
+import '../../../core/widgets/common/unified_video_card.dart';
 import '../../../routes/app_routes.dart';
 import '../controllers/video_controller.dart';
 import '../models/video_file.dart';
-import '../widgets/widgets.dart';
+import '../widgets/search_dialog.dart';
+import '../widgets/video_details_dialog.dart';
+import '../widgets/video_options_sheet.dart';
 
 class VideoListScreen extends StatelessWidget {
   const VideoListScreen({super.key});
