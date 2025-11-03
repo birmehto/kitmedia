@@ -109,7 +109,7 @@ class VideoThumbnail extends StatelessWidget {
     return Image.memory(
       snapshot.data!,
       fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => _buildError(theme),
+      errorBuilder: (_, ___, __) => _buildError(theme),
     );
   }
 
