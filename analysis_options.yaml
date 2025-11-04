@@ -183,7 +183,3 @@ linter:
     prefer_void_to_null: true
     provide_deprecation_message: true
     valid_regexps: true
-
-    # 🎨 UI and Accessibility
-    # use_decorated_box: true
-    # avoid_returning_null_for_future: true

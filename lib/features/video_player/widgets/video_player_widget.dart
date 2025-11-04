@@ -4,387 +4,495 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../../core/widgets/common/loading_indicator.dart';
 import '../controllers/video_player_controller.dart';
-import 'video_error_widget.dart';
+import 'video_playlist_widget.dart';
 
-class VideoPlayerWidget extends StatelessWidget {
+class VideoPlayerWidget extends StatefulWidget {
   const VideoPlayerWidget({
-    required this.videoTitle,
     required this.videoPath,
+    required this.videoTitle,
     super.key,
   });
 
-  final String videoTitle;
   final String videoPath;
+  final String videoTitle;
+
+  @override
+  State<VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
+  double? _initialBrightness;
+  double? _initialVolume;
+  bool _isDragging = false;
+  bool _isVolumeGesture = false;
+  bool _isBrightnessGesture = false;
+  double _gestureStartY = 0;
+  double _gestureCurrentY = 0;
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<VideoPlayerController>();
+    final controller = Get.find<VideoPlayerController>(tag: widget.videoPath);
+    final screenSize = MediaQuery.of(context).size;
 
-    return Obx(() {
-      if (controller.isLoading) {
-        return _buildLoadingWidget();
-      }
-
-      if (controller.hasError) {
-        return VideoErrorWidget(
-          error: controller.errorMessage,
-          onRetry: () => controller.retryInitialization(videoPath),
-        );
-      }
-
-      if (!controller.isInitialized ||
-          controller.betterPlayerController == null) {
-        return _buildInitializingWidget();
-      }
-
-      return _buildVideoPlayer(controller);
-    });
-  }
-
-  Widget _buildLoadingWidget() {
-    return const ColoredBox(
-      color: Colors.black,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return GestureDetector(
+      onTap: controller.toggleControls,
+      onDoubleTap: controller.togglePlay,
+      onPanStart: (details) => _onPanStart(details, screenSize, controller),
+      onPanUpdate: (details) => _onPanUpdate(details, controller),
+      onPanEnd: (details) => _onPanEnd(details, controller),
+      child: Container(
+        color: Colors.black,
+        child: Stack(
+          alignment: Alignment.center,
           children: [
-            LoadingIndicator(),
-            SizedBox(height: 16),
-            Text(
-              'Loading video...',
-              style: TextStyle(color: Colors.white, fontSize: 16),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+            // --- Better Player view ---
+            Obx(() {
+              if (controller.hasError.value) {
+                return Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    margin: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.red.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Symbols.error_rounded,
+                          color: Colors.red,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          controller.errorMessage.value,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
 
-  Widget _buildInitializingWidget() {
-    return const ColoredBox(
-      color: Colors.black,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Symbols.video_library_rounded,
-              color: Colors.white54,
-              size: 64,
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Initializing player...',
-              style: TextStyle(color: Colors.white54, fontSize: 16),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+              if (controller.isLoading.value || controller.player == null) {
+                return const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading video...',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                );
+              }
 
-  Widget _buildVideoPlayer(VideoPlayerController controller) {
-    return ColoredBox(
-      color: Colors.black,
-      child: Stack(
-        children: [
-          // Better Player Video
-          Positioned.fill(
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: controller.aspectRatio,
-                child: BetterPlayer(
-                  controller: controller.betterPlayerController!,
+              return AspectRatio(
+                aspectRatio: controller.aspectRatio.value,
+                child: BetterPlayer(controller: controller.player!),
+              );
+            }),
+
+            // --- Loading or buffering spinner ---
+            Obx(() {
+              if (controller.isBuffering.value) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(height: 8),
+                      Text(
+                        'Buffering...',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
+
+            // --- Gesture feedback overlay ---
+            if (_isDragging) _buildGestureFeedback(controller),
+
+            // --- Overlay controls ---
+            Obx(() {
+              if (!controller.isControlsVisible.value) {
+                return const SizedBox.shrink();
+              }
+
+              return AnimatedOpacity(
+                opacity: controller.isControlsVisible.value ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: _VideoControlsOverlay(
+                  videoTitle: widget.videoTitle,
+                  controllerTag: widget.videoPath,
                 ),
-              ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onPanStart(
+    DragStartDetails details,
+    Size screenSize,
+    VideoPlayerController controller,
+  ) {
+    if (!controller.gesturesEnabled.value) return;
+
+    _gestureStartY = details.globalPosition.dy;
+    _gestureCurrentY = _gestureStartY;
+    _isDragging = true;
+
+    // Determine if this is a volume or brightness gesture based on screen side
+    final isLeftSide = details.globalPosition.dx < screenSize.width / 2;
+    _isBrightnessGesture = isLeftSide;
+    _isVolumeGesture = !isLeftSide;
+
+    // Store initial values
+    if (_isBrightnessGesture) {
+      _initialBrightness = controller.brightness.value;
+    } else if (_isVolumeGesture) {
+      _initialVolume = controller.volume.value;
+    }
+
+    setState(() {});
+  }
+
+  void _onPanUpdate(
+    DragUpdateDetails details,
+    VideoPlayerController controller,
+  ) {
+    if (!controller.gesturesEnabled.value || !_isDragging) return;
+
+    _gestureCurrentY = details.globalPosition.dy;
+    final deltaY = _gestureStartY - _gestureCurrentY;
+    final sensitivity = 300.0; // Adjust sensitivity
+
+    if (_isBrightnessGesture && _initialBrightness != null) {
+      final newBrightness = (_initialBrightness! + (deltaY / sensitivity))
+          .clamp(0.0, 1.0);
+      controller.setBrightness(newBrightness);
+    } else if (_isVolumeGesture && _initialVolume != null) {
+      final newVolume = (_initialVolume! + (deltaY / sensitivity)).clamp(
+        0.0,
+        1.0,
+      );
+      controller.setVolume(newVolume);
+    }
+
+    setState(() {});
+  }
+
+  void _onPanEnd(DragEndDetails details, VideoPlayerController controller) {
+    _isDragging = false;
+    _isBrightnessGesture = false;
+    _isVolumeGesture = false;
+    _initialBrightness = null;
+    _initialVolume = null;
+    setState(() {});
+  }
+
+  Widget _buildGestureFeedback(VideoPlayerController controller) {
+    return Positioned(
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        color: Colors.black26,
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(12),
             ),
-          ),
-
-          // Gesture detector for video area
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: controller.toggleControls,
-              onDoubleTap: () {
-                if (controller.isFullScreen) {
-                  controller.togglePlayPause();
-                } else {
-                  controller.toggleFullScreen();
-                }
-              },
-              child: Container(color: Colors.transparent),
-            ),
-          ),
-
-          // Gesture areas for seeking (only when controls are hidden)
-          Obx(() {
-            if (controller.gesturesEnabled && !controller.isControlsVisible) {
-              return _buildGestureAreas(controller);
-            }
-            return const SizedBox.shrink();
-          }),
-
-          // Buffering indicator
-          Obx(() {
-            if (controller.isBuffering) {
-              return const Center(
-                child: Column(
+            child: Obx(() {
+              if (_isBrightnessGesture) {
+                return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    LoadingIndicator(),
-                    SizedBox(height: 12),
+                    const Icon(
+                      Symbols.brightness_6,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      'Buffering...',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                      'Brightness: ${(controller.brightness.value * 100).round()}%',
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: 120,
+                      child: LinearProgressIndicator(
+                        value: controller.brightness.value,
+                        backgroundColor: Colors.white30,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Colors.white,
+                        ),
                       ),
                     ),
                   ],
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          }),
-
-          // Video completed overlay
-          Obx(() {
-            if (controller.isCompleted && !controller.loopVideo) {
-              return _buildCompletedOverlay(controller);
-            }
-            return const SizedBox.shrink();
-          }),
-
-          // Controls overlay
-          Obx(() {
-            if (controller.isControlsVisible) {
-              return _buildControlsOverlay(controller);
-            }
-            return const SizedBox.shrink();
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompletedOverlay(VideoPlayerController controller) {
-    return ColoredBox(
-      color: Colors.black.withValues(alpha: 0.8),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.green, width: 2),
-              ),
-              child: const Icon(
-                Symbols.check_circle_rounded,
-                color: Colors.green,
-                size: 48,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Video Completed',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildActionButton(
-                  icon: Symbols.replay_rounded,
-                  label: 'Replay',
-                  onPressed: controller.restart,
-                  isPrimary: true,
-                ),
-                const SizedBox(width: 16),
-                _buildActionButton(
-                  icon: Symbols.arrow_back_rounded,
-                  label: 'Back',
-                  onPressed: () => Get.back(),
-                  isPrimary: false,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-    required bool isPrimary,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isPrimary ? Colors.white : Colors.transparent,
-        borderRadius: BorderRadius.circular(25),
-        border: isPrimary ? null : Border.all(color: Colors.white, width: 1.5),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(25),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  color: isPrimary ? Colors.black : Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isPrimary ? Colors.black : Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+                );
+              } else if (_isVolumeGesture) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      controller.volume.value == 0
+                          ? Symbols.volume_off
+                          : controller.volume.value < 0.5
+                          ? Symbols.volume_down
+                          : Symbols.volume_up,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Volume: ${(controller.volume.value * 100).round()}%',
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: 120,
+                      child: LinearProgressIndicator(
+                        value: controller.volume.value,
+                        backgroundColor: Colors.white30,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return const SizedBox.shrink();
+            }),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildControlsOverlay(VideoPlayerController controller) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.black.withValues(alpha: 0.7),
-            Colors.transparent,
-            Colors.transparent,
-            Colors.black.withValues(alpha: 0.7),
-          ],
-          stops: const [0.0, 0.3, 0.7, 1.0],
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(controller),
-            Expanded(child: _buildCenterControls(controller)),
-            _buildBottomControls(controller),
-          ],
-        ),
-      ),
+class _VideoControlsOverlay extends StatefulWidget {
+  const _VideoControlsOverlay({
+    required this.videoTitle,
+    required this.controllerTag,
+  });
+
+  final String videoTitle;
+  final String controllerTag;
+
+  @override
+  State<_VideoControlsOverlay> createState() => _VideoControlsOverlayState();
+}
+
+class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
+    with TickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
     );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+    _fadeController.forward();
   }
 
-  Widget _buildTopBar(VideoPlayerController controller) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          _buildIconButton(
-            icon: Symbols.arrow_back_rounded,
-            onPressed: () => Get.back(),
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<VideoPlayerController>(
+      tag: widget.controllerTag,
+    );
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withValues(alpha: 0.7),
+              Colors.transparent,
+              Colors.transparent,
+              Colors.black.withValues(alpha: 0.8),
+            ],
+            stops: const [0.0, 0.3, 0.7, 1.0],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  videoTitle,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // --- Top bar ---
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-                if (controller.videoResolution.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    controller.videoResolution,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                child: Row(
+                  children: [
+                    _buildControlButton(
+                      icon: Symbols.arrow_back_rounded,
+                      onPressed: () {
+                        if (controller.isFullScreen.value) {
+                          controller.toggleFullscreen();
+                        } else {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.videoTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Obx(() {
+                            if (controller.resolution.value.isNotEmpty) {
+                              return Text(
+                                controller.resolution.value,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          }),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    _buildControlButton(
+                      icon: Symbols.more_vert_rounded,
+                      onPressed: () => _showOptionsMenu(context, controller),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // --- Center controls ---
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildSeekButton(
+                    icon: Symbols.replay_10_rounded,
+                    onPressed: () => controller.seekBackward(),
+                  ),
+                  Obx(() => _buildPlayPauseButton(controller)),
+                  _buildSeekButton(
+                    icon: Symbols.forward_10_rounded,
+                    onPressed: () => controller.seekForward(),
                   ),
                 ],
-              ],
+              ),
             ),
-          ),
-          _buildIconButton(
-            icon: Symbols.settings_rounded,
-            onPressed: () => _showSettingsDialog(controller),
-          ),
-          const SizedBox(width: 8),
-          _buildIconButton(
-            icon: controller.isFullScreen
-                ? Symbols.fullscreen_exit_rounded
-                : Symbols.fullscreen_rounded,
-            onPressed: controller.toggleFullScreen,
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildIconButton({
-    required IconData icon,
-    required VoidCallback onPressed,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onPressed();
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
+            // --- Bottom controls ---
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Progress bar with preview
+                  Obx(() => _buildProgressBar(controller)),
+                  const SizedBox(height: 16),
+                  // Control buttons row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildControlButton(
+                        icon: Symbols.skip_previous_rounded,
+                        onPressed: controller.previousVideo,
+                        size: 24,
+                      ),
+                      _buildControlButton(
+                        icon: controller.isPlaying.value
+                            ? Symbols.pause_rounded
+                            : Symbols.play_arrow_rounded,
+                        onPressed: controller.togglePlay,
+                        size: 28,
+                      ),
+                      _buildControlButton(
+                        icon: Symbols.skip_next_rounded,
+                        onPressed: controller.nextVideo,
+                        size: 24,
+                      ),
+                      _buildControlButton(
+                        icon: Symbols.playlist_play_rounded,
+                        onPressed: () => _showPlaylist(context),
+                        size: 24,
+                      ),
+                      _buildControlButton(
+                        icon: Symbols.screenshot_rounded,
+                        onPressed: controller.takeScreenshot,
+                        size: 24,
+                      ),
+                      Obx(
+                        () => _buildControlButton(
+                          icon: controller.isFullScreen.value
+                              ? Symbols.fullscreen_exit_rounded
+                              : Symbols.fullscreen_rounded,
+                          onPressed: controller.toggleFullscreen,
+                          size: 24,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildCenterControls(VideoPlayerController controller) {
-    return Center(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildControlButton(
-            icon: Symbols.replay_10_rounded,
-            onPressed: controller.seekBackward,
-          ),
-          _buildPlayPauseButton(controller),
-          _buildControlButton(
-            icon: Symbols.forward_10_rounded,
-            onPressed: controller.seekForward,
-          ),
-        ],
       ),
     );
   }
@@ -392,517 +500,492 @@ class VideoPlayerWidget extends StatelessWidget {
   Widget _buildControlButton({
     required IconData icon,
     required VoidCallback onPressed,
+    double size = 24,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.5),
-        shape: BoxShape.circle,
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onPressed();
-          },
-          borderRadius: BorderRadius.circular(30),
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(24),
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Icon(icon, color: Colors.white, size: 28),
+            padding: const EdgeInsets.all(12),
+            child: Icon(icon, color: Colors.white, size: size),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSeekButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.black38,
+          borderRadius: BorderRadius.circular(32),
+        ),
+        child: Icon(icon, color: Colors.white, size: 32),
       ),
     );
   }
 
   Widget _buildPlayPauseButton(VideoPlayerController controller) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            controller.togglePlayPause();
-          },
-          borderRadius: BorderRadius.circular(35),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Icon(
-              controller.isPlaying
-                  ? Symbols.pause_rounded
-                  : Symbols.play_arrow_rounded,
-              color: Colors.black,
-              size: 32,
-            ),
+    return GestureDetector(
+      onTap: controller.togglePlay,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: controller.isPlaying.value ? Colors.black54 : Colors.white24,
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.3),
+            width: 2,
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildBottomControls(VideoPlayerController controller) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildProgressBar(controller),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildSpeedButton(controller),
-              _buildVolumeButton(controller),
-              _buildLoopButton(controller),
-              _buildMoreButton(controller),
-            ],
-          ),
-        ],
+        child: Icon(
+          controller.isPlaying.value
+              ? Symbols.pause_rounded
+              : Symbols.play_arrow_rounded,
+          color: Colors.white,
+          size: 40,
+        ),
       ),
     );
   }
 
   Widget _buildProgressBar(VideoPlayerController controller) {
-    return Obx(() {
-      final position = controller.position;
-      final duration = controller.duration;
-      final progress = controller.progress;
+    final pos = controller.position.value;
+    final dur = controller.duration.value;
+    final progress = dur.inMilliseconds > 0
+        ? pos.inMilliseconds / dur.inMilliseconds
+        : 0.0;
 
-      return Column(
-        children: [
-          SliderTheme(
-            data: SliderTheme.of(Get.context!).copyWith(
-              activeTrackColor: Colors.white,
-              inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
-              thumbColor: Colors.white,
-              overlayColor: Colors.white.withValues(alpha: 0.2),
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-            ),
-            child: Slider(
-              value: progress.clamp(0.0, 1.0),
-              onChanged: (value) {
-                controller.seekToPercentage(value);
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _formatDuration(position),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              if (controller.playbackSpeed != 1.0)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${controller.playbackSpeed}x',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              Text(
-                _formatDuration(duration),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ],
-      );
-    });
-  }
-
-  Widget _buildSpeedButton(VideoPlayerController controller) {
-    return PopupMenuButton<double>(
-      icon: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Icon(Symbols.speed_rounded, color: Colors.white, size: 20),
-      ),
-      color: Colors.grey[900],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onSelected: controller.setPlaybackSpeed,
-      itemBuilder: (context) => controller.availableSpeeds
-          .map(
-            (speed) => PopupMenuItem(
-              value: speed,
-              child: Row(
-                children: [
-                  if (controller.playbackSpeed == speed)
-                    const Icon(
-                      Symbols.check_rounded,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  if (controller.playbackSpeed == speed)
-                    const SizedBox(width: 8),
-                  Text(
-                    '${speed}x',
-                    style: TextStyle(
-                      color: controller.playbackSpeed == speed
-                          ? Colors.white
-                          : Colors.white70,
-                      fontWeight: controller.playbackSpeed == speed
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Widget _buildVolumeButton(VideoPlayerController controller) {
-    return PopupMenuButton<double>(
-      icon: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Icon(
-          controller.volume == 0
-              ? Symbols.volume_off_rounded
-              : controller.volume > 0.5
-              ? Symbols.volume_up_rounded
-              : Symbols.volume_down_rounded,
-          color: Colors.white,
-          size: 20,
-        ),
-      ),
-      color: Colors.grey[900],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onSelected: controller.setVolume,
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: 0.0,
-          child: Row(
-            children: [
-              const Icon(
-                Symbols.volume_off_rounded,
-                color: Colors.white70,
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Mute',
-                style: TextStyle(
-                  color: controller.volume == 0.0
-                      ? Colors.white
-                      : Colors.white70,
-                  fontWeight: controller.volume == 0.0
-                      ? FontWeight.w600
-                      : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        ...[0.25, 0.5, 0.75, 1.0].map(
-          (volume) => PopupMenuItem(
-            value: volume,
-            child: Row(
-              children: [
-                if (controller.volume == volume)
-                  const Icon(
-                    Symbols.check_rounded,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                if (controller.volume == volume) const SizedBox(width: 8),
-                Text(
-                  '${(volume * 100).toInt()}%',
-                  style: TextStyle(
-                    color: controller.volume == volume
-                        ? Colors.white
-                        : Colors.white70,
-                    fontWeight: controller.volume == volume
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoopButton(VideoPlayerController controller) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => controller.setLoopVideo(!controller.loopVideo),
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Icon(
-              controller.loopVideo
-                  ? Symbols.repeat_on_rounded
-                  : Symbols.repeat_rounded,
-              color: controller.loopVideo ? Colors.blue : Colors.white,
-              size: 20,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMoreButton(VideoPlayerController controller) {
-    return PopupMenuButton<String>(
-      icon: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Icon(
-          Symbols.more_vert_rounded,
-          color: Colors.white,
-          size: 20,
-        ),
-      ),
-      color: Colors.grey[900],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onSelected: (value) {
-        switch (value) {
-          case 'restart':
-            controller.restart();
-            break;
-          case 'info':
-            _showVideoInfo(controller);
-            break;
-        }
-      },
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'restart',
-          child: Row(
-            children: [
-              Icon(
-                Symbols.restart_alt_rounded,
-                color: Colors.white70,
-                size: 16,
-              ),
-              SizedBox(width: 8),
-              Text('Restart', style: TextStyle(color: Colors.white70)),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'info',
-          child: Row(
-            children: [
-              Icon(Symbols.info_rounded, color: Colors.white70, size: 16),
-              SizedBox(width: 8),
-              Text('Video Info', style: TextStyle(color: Colors.white70)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGestureAreas(VideoPlayerController controller) {
-    return Row(
+    return Column(
       children: [
-        // Left side - seek backward
-        Expanded(
-          child: GestureDetector(
-            onDoubleTap: () {
-              controller.seekBackward();
-              controller.showControls();
-            },
-            child: Container(color: Colors.transparent),
-          ),
-        ),
-        // Right side - seek forward
-        Expanded(
-          child: GestureDetector(
-            onDoubleTap: () {
-              controller.seekForward();
-              controller.showControls();
-            },
-            child: Container(color: Colors.transparent),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showSettingsDialog(VideoPlayerController controller) {
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: Colors.grey[900],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Video Settings',
-          style: TextStyle(color: Colors.white, fontSize: 20),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+        Row(
           children: [
-            _buildSettingsTile(
-              title: 'Auto-hide Controls',
-              value: controller.autoHideControls,
-              onChanged: controller.setAutoHideControls,
+            Text(
+              _formatDuration(pos),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-            _buildSettingsTile(
-              title: 'Remember Position',
-              value: controller.rememberPosition,
-              onChanged: controller.setRememberPosition,
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: Colors.white,
+                    inactiveTrackColor: Colors.white30,
+                    thumbColor: Colors.white,
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 8,
+                    ),
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 16,
+                    ),
+                    trackHeight: 4,
+                  ),
+                  child: Slider(
+                    value: progress.clamp(0.0, 1.0),
+                    onChanged: (value) {
+                      final newPosition = Duration(
+                        milliseconds: (dur.inMilliseconds * value).round(),
+                      );
+                      controller.seek(newPosition);
+                    },
+                  ),
+                ),
+              ),
             ),
-            _buildSettingsTile(
-              title: 'Gesture Controls',
-              value: controller.gesturesEnabled,
-              onChanged: controller.setGesturesEnabled,
+            Text(
+              _formatDuration(dur),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text(
-              'Close',
-              style: TextStyle(color: Colors.blue, fontSize: 16),
+      ],
+    );
+  }
+
+  void _showOptionsMenu(
+    BuildContext context,
+    VideoPlayerController controller,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _VideoOptionsSheet(controller: controller),
+    );
+  }
+
+  void _showPlaylist(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) =>
+          VideoPlaylistWidget(controllerTag: widget.controllerTag),
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = d.inHours;
+    final minutes = twoDigits(d.inMinutes.remainder(60));
+    final seconds = twoDigits(d.inSeconds.remainder(60));
+
+    if (hours > 0) {
+      return '$hours:$minutes:$seconds';
+    }
+    return '$minutes:$seconds';
+  }
+}
+
+class _VideoOptionsSheet extends StatelessWidget {
+  const _VideoOptionsSheet({required this.controller});
+
+  final VideoPlayerController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white54,
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'Video Options',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          _buildOptionTile(
+            icon: Symbols.speed_rounded,
+            title: 'Playback Speed',
+            subtitle: '${controller.speed.value}x',
+            onTap: () => _showSpeedOptions(context),
+          ),
+          Obx(
+            () => _buildOptionTile(
+              icon: controller.volume.value == 0
+                  ? Symbols.volume_off_rounded
+                  : Symbols.volume_up_rounded,
+              title: 'Volume',
+              subtitle: '${(controller.volume.value * 100).round()}%',
+              onTap: () => _showVolumeSlider(context),
+            ),
+          ),
+          _buildOptionTile(
+            icon: Symbols.info_rounded,
+            title: 'Video Info',
+            subtitle: 'Details about this video',
+            onTap: () => _showVideoInfo(context),
+          ),
+          Obx(
+            () => _buildSwitchTile(
+              icon: Symbols.loop_rounded,
+              title: 'Loop Video',
+              value: controller.loop.value,
+              onChanged: controller.setLoop,
+            ),
+          ),
+          Obx(
+            () => _buildSwitchTile(
+              icon: Symbols.gesture_rounded,
+              title: 'Gesture Controls',
+              value: controller.gesturesEnabled.value,
+              onChanged: controller.setGesturesEnabled,
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  Widget _buildSettingsTile({
+  Widget _buildOptionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.white),
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      subtitle: Text(subtitle, style: const TextStyle(color: Colors.white70)),
+      trailing: const Icon(
+        Symbols.chevron_right_rounded,
+        color: Colors.white54,
+      ),
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildSwitchTile({
+    required IconData icon,
     required String title,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return SwitchListTile(
-      title: Text(
-        title,
-        style: const TextStyle(color: Colors.white70, fontSize: 16),
+    return ListTile(
+      leading: Icon(icon, color: Colors.white),
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
+        activeThumbColor: Colors.white,
       ),
-      value: value,
-      onChanged: onChanged,
-      activeThumbColor: Colors.blue,
-      contentPadding: EdgeInsets.zero,
     );
   }
 
-  void _showVideoInfo(VideoPlayerController controller) {
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: Colors.grey[900],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Video Information',
-          style: TextStyle(color: Colors.white, fontSize: 20),
+  void _showSpeedOptions(BuildContext context) {
+    Navigator.pop(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        content: Column(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white54,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Playback Speed',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ...controller.speeds.map(
+              (speed) => Obx(
+                () => ListTile(
+                  title: Text(
+                    '${speed}x',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  trailing: controller.speed.value == speed
+                      ? const Icon(Symbols.check_rounded, color: Colors.white)
+                      : null,
+                  onTap: () {
+                    controller.setSpeed(speed);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showVolumeSlider(BuildContext context) {
+    Navigator.pop(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white54,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text(
+              'Volume Control',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Obx(
+              () => Row(
+                children: [
+                  Icon(
+                    controller.volume.value == 0
+                        ? Symbols.volume_off_rounded
+                        : Symbols.volume_up_rounded,
+                    color: Colors.white,
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: controller.volume.value,
+                      onChanged: controller.setVolume,
+                      activeColor: Colors.white,
+                      inactiveColor: Colors.white30,
+                    ),
+                  ),
+                  Text(
+                    '${(controller.volume.value * 100).round()}%',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showVideoInfo(BuildContext context) {
+    Navigator.pop(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _infoRow('Resolution', controller.videoResolution),
-            _infoRow('Duration', _formatDuration(controller.duration)),
-            _infoRow('Position', _formatDuration(controller.position)),
-            _infoRow(
-              'Progress',
-              '${(controller.progress * 100).toStringAsFixed(1)}%',
+            Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white54,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            _infoRow('Speed', '${controller.playbackSpeed}x'),
-            _infoRow('Volume', '${(controller.volume * 100).toInt()}%'),
+            const Text(
+              'Video Information',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Obx(
+              () => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoRow(
+                    'Duration',
+                    _formatDuration(controller.duration.value),
+                  ),
+                  _buildInfoRow('Resolution', controller.resolution.value),
+                  _buildInfoRow(
+                    'Aspect Ratio',
+                    '${controller.aspectRatio.value.toStringAsFixed(2)}:1',
+                  ),
+                  _buildInfoRow('Current Speed', '${controller.speed.value}x'),
+                  _buildInfoRow(
+                    'Volume',
+                    '${(controller.volume.value * 100).round()}%',
+                  ),
+                  _buildInfoRow(
+                    'Position',
+                    _formatDuration(controller.position.value),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text(
-              'Close',
-              style: TextStyle(color: Colors.blue, fontSize: 16),
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  Widget _infoRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            '$label:',
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 16),
           ),
           Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+            value.isEmpty ? 'Unknown' : value,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
           ),
         ],
       ),
     );
   }
 
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
+  String _formatDuration(Duration d) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = d.inHours;
+    final minutes = twoDigits(d.inMinutes.remainder(60));
+    final seconds = twoDigits(d.inSeconds.remainder(60));
 
     if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    } else {
-      return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+      return '$hours:$minutes:$seconds';
     }
+    return '$minutes:$seconds';
   }
 }

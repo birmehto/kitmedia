@@ -1,195 +1,267 @@
-# Video Player Feature
+# Enhanced Video Player
 
-A modern, feature-rich video player built with `better_player_plus` and GetX state management.
+A comprehensive, feature-rich video player for Flutter with modern UI and advanced controls.
 
-## Features
+## 🚀 Features
 
 ### Core Functionality
-- ✅ **High-quality video playback** using better_player_plus
-- ✅ **Custom UI controls** with modern Material Design 3
-- ✅ **Fullscreen support** with automatic orientation handling
-- ✅ **Gesture controls** for seeking and volume adjustment
-- ✅ **Auto-hide controls** with customizable timing
-- ✅ **Position memory** - remembers playback position
-- ✅ **Multiple playback speeds** (0.25x to 2.0x)
-- ✅ **Volume control** with mute functionality
-- ✅ **Loop video** option
-- ✅ **Error handling** with detailed error messages and troubleshooting tips
+- **High-quality video playback** using Better Player Plus
+- **Gesture controls** for brightness and volume adjustment
+- **Fullscreen mode** with automatic orientation handling
+- **Playback speed control** (0.25x to 2x speed)
+- **Loop and repeat** functionality
+- **Auto-hide controls** with customizable timing
 
-### UI/UX Improvements
-- 🎨 **Modern design** with smooth animations and transitions
-- 🎨 **Gradient overlays** for better control visibility
-- 🎨 **Haptic feedback** for better user interaction
-- 🎨 **Loading states** with custom indicators
-- 🎨 **Completion overlay** with replay and navigation options
-- 🎨 **Settings dialog** for customizing player behavior
-- 🎨 **Video info dialog** showing technical details
+### Advanced Features
+- **Playlist support** with next/previous navigation
+- **Screenshot capture** with automatic saving
+- **Subtitle support** (SRT format)
+- **Video quality selection** (when multiple qualities available)
+- **Picture-in-picture mode** (platform dependent)
+- **Remember playback position** across sessions
+- **Wakelock integration** to prevent screen sleep
 
-### Technical Features
-- ⚡ **Optimized performance** with efficient state management
-- ⚡ **Memory management** with proper disposal
-- ⚡ **Wakelock support** to prevent screen sleep during playback
-- ⚡ **System UI handling** for immersive fullscreen experience
-- ⚡ **Position persistence** using SharedPreferences
+### UI/UX Enhancements
+- **Modern Material 3 design** with smooth animations
+- **Gradient overlays** for better control visibility
+- **Responsive controls** that adapt to screen size
+- **Error handling** with detailed error messages and recovery options
+- **Loading states** with progress indicators
+- **Gesture feedback** with visual indicators
 
-## Architecture
-
-```
-lib/features/video_player/
-├── controllers/
-│   └── video_player_controller.dart    # Main controller with GetX
-├── views/
-│   └── video_player_screen.dart        # Main screen widget
-├── widgets/
-│   ├── video_player_widget.dart        # Core video player widget
-│   └── video_error_widget.dart         # Error handling widget
-├── bindings/
-│   └── video_player_binding.dart       # Dependency injection
-├── example_usage.dart                  # Usage examples
-└── README.md                          # This file
-```
-
-## Usage
+## 📱 Usage
 
 ### Basic Usage
 
 ```dart
 import 'package:get/get.dart';
-import 'features/video_player/views/video_player_screen.dart';
-import 'features/video_player/bindings/video_player_binding.dart';
+import 'package:kitmedia/features/video_player/views/video_player_screen.dart';
+import 'package:kitmedia/features/video_player/bindings/video_player_binding.dart';
 
 // Navigate to video player
 Get.to(
-  () => const VideoPlayerScreen(
-    videoPath: '/path/to/video.mp4',
-    videoTitle: 'My Video',
+  () => VideoPlayerScreen(
+    videoPath: '/path/to/your/video.mp4',
+    videoTitle: 'My Video Title',
   ),
   binding: VideoPlayerBinding(),
 );
 ```
 
-### With GetX Routing
+### Advanced Usage with Playlist
 
 ```dart
-// Define route
-GetPage(
-  name: '/video-player',
-  page: () => const VideoPlayerScreen(
-    videoPath: Get.arguments['videoPath'] ?? '',
-    videoTitle: Get.arguments['videoTitle'] ?? 'Video',
+// Set up playlist
+final videoPaths = [
+  '/path/to/video1.mp4',
+  '/path/to/video2.mp4',
+  '/path/to/video3.mp4',
+];
+
+Get.to(
+  () => VideoPlayerScreen(
+    videoPath: videoPaths.first,
+    videoTitle: 'Video 1',
   ),
   binding: VideoPlayerBinding(),
-)
+);
 
-// Navigate
-Get.toNamed('/video-player', arguments: {
-  'videoPath': '/path/to/video.mp4',
-  'videoTitle': 'My Video',
+// Configure playlist after navigation
+WidgetsBinding.instance.addPostFrameCallback((_) {
+  final controller = Get.find<VideoPlayerController>(tag: videoPaths.first);
+  controller.setPlaylist(videoPaths, startIndex: 0);
 });
 ```
 
-## Controller API
+### Programmatic Control
 
-### Properties
-- `isInitialized` - Whether the player is ready
-- `isPlaying` - Current playback state
-- `isLoading` - Loading state
-- `hasError` - Error state
-- `position` - Current playback position
-- `duration` - Total video duration
-- `progress` - Playback progress (0.0 to 1.0)
-- `volume` - Current volume (0.0 to 1.0)
-- `playbackSpeed` - Current playback speed
-- `isFullScreen` - Fullscreen state
-- `isControlsVisible` - Controls visibility state
+```dart
+final controller = Get.find<VideoPlayerController>(tag: videoPath);
 
-### Methods
-- `play()` - Start playback
-- `pause()` - Pause playback
-- `togglePlayPause()` - Toggle play/pause
-- `seekTo(Duration)` - Seek to specific position
-- `seekToPercentage(double)` - Seek to percentage
-- `seekForward([int seconds])` - Seek forward
-- `seekBackward([int seconds])` - Seek backward
-- `setVolume(double)` - Set volume
-- `setPlaybackSpeed(double)` - Set playback speed
-- `toggleFullScreen()` - Toggle fullscreen
-- `toggleControls()` - Toggle controls visibility
-- `restart()` - Restart video from beginning
+// Playback controls
+controller.play();
+controller.pause();
+controller.togglePlay();
+controller.seek(Duration(minutes: 2));
+controller.setSpeed(1.5);
 
-### Settings
-- `setAutoHideControls(bool)` - Enable/disable auto-hide
-- `setRememberPosition(bool)` - Enable/disable position memory
-- `setLoopVideo(bool)` - Enable/disable video looping
-- `setGesturesEnabled(bool)` - Enable/disable gesture controls
+// Settings
+controller.setVolume(0.8);
+controller.setBrightness(0.6);
+controller.setLoop(true);
+controller.setGesturesEnabled(true);
 
-## Supported Formats
+// Playlist navigation
+controller.nextVideo();
+controller.previousVideo();
 
-The player supports all formats supported by better_player_plus:
-- MP4 (recommended)
-- AVI
-- MKV
-- MOV
-- WMV
-- FLV
-- WebM
-- M4V
-- 3GP
-- OGV
+// Screenshot
+controller.takeScreenshot();
+```
 
-## Dependencies
+## 🎮 Controls
+
+### Touch Gestures
+- **Single tap**: Toggle controls visibility
+- **Double tap**: Play/pause video
+- **Swipe left side**: Adjust brightness
+- **Swipe right side**: Adjust volume
+- **Pinch to zoom**: (Future feature)
+
+### Control Buttons
+- **Play/Pause**: Center button or bottom controls
+- **Seek**: ±10 seconds with dedicated buttons
+- **Fullscreen**: Toggle fullscreen mode
+- **Screenshot**: Capture current frame
+- **Playlist**: View and navigate playlist
+- **Settings**: Access video options menu
+
+### Settings Menu
+- **Playback Speed**: 0.25x, 0.5x, 0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x
+- **Volume Control**: System volume integration
+- **Video Info**: Resolution, duration, codec information
+- **Loop Mode**: Toggle video looping
+- **Gesture Controls**: Enable/disable gesture controls
+
+## 🏗️ Architecture
+
+### File Structure
+```
+lib/features/video_player/
+├── bindings/
+│   └── video_player_binding.dart
+├── controllers/
+│   └── video_player_controller.dart
+├── views/
+│   └── video_player_screen.dart
+├── widgets/
+│   ├── video_player_widget.dart
+│   ├── video_error_widget.dart
+│   ├── video_playlist_widget.dart
+│   ├── video_subtitle_widget.dart
+│   └── video_quality_widget.dart
+├── utils/
+│   └── video_player_utils.dart
+├── theme/
+│   └── video_player_theme.dart
+└── example/
+    └── video_player_example.dart
+```
+
+### Key Components
+
+#### VideoPlayerController
+- Manages video playback state and controls
+- Handles gesture interactions
+- Manages playlist and navigation
+- Integrates with system volume and brightness
+
+#### VideoPlayerWidget
+- Main video display component
+- Gesture detection and handling
+- Control overlay management
+- Animation and transition handling
+
+#### VideoPlayerScreen
+- Screen wrapper with lifecycle management
+- Error handling and recovery
+- Screenshot functionality
+- System UI integration
+
+## 🎨 Theming
+
+The video player uses a comprehensive theming system defined in `VideoPlayerTheme`:
+
+```dart
+// Custom colors
+VideoPlayerTheme.primaryColor
+VideoPlayerTheme.backgroundColor
+VideoPlayerTheme.controlsActive
+
+// Text styles
+VideoPlayerTheme.titleStyle
+VideoPlayerTheme.subtitleStyle
+
+// Button styles
+VideoPlayerTheme.primaryButtonStyle
+VideoPlayerTheme.secondaryButtonStyle
+
+// Decorations
+VideoPlayerTheme.controlsDecoration
+VideoPlayerTheme.overlayDecoration
+```
+
+## 🔧 Configuration
+
+### Dependencies
+Add these to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
   better_player_plus: ^1.1.2
   get: ^4.7.2
-  shared_preferences: ^2.5.3
-  wakelock_plus: ^1.4.0
   material_symbols_icons: ^4.2874.0
+  screen_brightness: ^2.1.7
+  volume_controller: ^3.4.0
+  wakelock_plus: ^1.4.0
+  shared_preferences: ^2.5.3
+  path_provider: ^2.1.5
 ```
 
-## Customization
+### Permissions
+Add these permissions to your platform-specific configuration:
 
-### Theming
-The player respects your app's theme and uses Material Design 3 components. Colors and styles can be customized by modifying the widget files.
+#### Android (`android/app/src/main/AndroidManifest.xml`)
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.WAKE_LOCK" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+```
 
-### Controls
-Controls can be customized by modifying the `_buildControlsOverlay` method in `video_player_widget.dart`.
+#### iOS (`ios/Runner/Info.plist`)
+```xml
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>This app needs access to save video screenshots</string>
+```
 
-### Gestures
-Gesture sensitivity and behavior can be adjusted through the controller settings.
+## 🚀 Performance Optimizations
 
-## Error Handling
+- **Lazy loading** of video resources
+- **Memory management** with proper disposal
+- **Efficient gesture handling** with debouncing
+- **Optimized animations** using Flutter's animation framework
+- **Background processing** for thumbnail generation
 
-The player provides comprehensive error handling with:
-- Detailed error messages
-- Troubleshooting tips
-- Retry functionality
-- Graceful fallbacks
+## 🐛 Error Handling
 
-Common errors are automatically detected and user-friendly messages are displayed.
+The video player includes comprehensive error handling:
 
-## Performance Considerations
+- **Network errors**: Retry mechanisms and user feedback
+- **File not found**: Clear error messages and navigation options
+- **Codec issues**: Format compatibility warnings
+- **Permission errors**: Guidance for enabling required permissions
+- **Playback errors**: Automatic recovery attempts
 
-- The player automatically manages memory and disposes resources
-- Wakelock is enabled during playback to prevent screen sleep
-- Position is saved periodically to prevent data loss
-- System UI is properly managed for fullscreen experience
+## 🔮 Future Enhancements
 
-## Migration from media_kit
+- **Chromecast support**: Cast videos to external displays
+- **AirPlay integration**: iOS screen mirroring
+- **Advanced subtitle features**: Multiple languages, styling
+- **Video filters**: Brightness, contrast, saturation adjustments
+- **Streaming support**: HLS and DASH adaptive streaming
+- **Chapter navigation**: Video chapter markers
+- **Thumbnail preview**: Seek bar thumbnail previews
+- **Audio track selection**: Multiple audio tracks
+- **Closed captions**: Accessibility improvements
 
-If migrating from the previous media_kit implementation:
+## 📄 License
 
-1. Replace media_kit dependencies with better_player_plus
-2. Update controller initialization calls
-3. The API remains largely the same for easy migration
-4. Better error handling and UI improvements are included
+This video player is part of the KitMedia project and follows the same licensing terms.
 
-## Contributing
+## 🤝 Contributing
 
-When contributing to the video player feature:
-1. Follow the existing architecture patterns
-2. Maintain GetX state management consistency
-3. Add proper error handling for new features
-4. Update this README for any new functionality
-5. Test on multiple video formats and devices
+Contributions are welcome! Please follow the existing code style and add tests for new features.
+
+## 📞 Support
+
+For issues and feature requests, please use the project's issue tracker.

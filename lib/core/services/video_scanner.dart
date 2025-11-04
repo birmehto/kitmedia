@@ -2,433 +2,252 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:external_path/external_path.dart';
-import 'package:media_kit/media_kit.dart';
+import 'package:flutter/foundation.dart';
 import 'package:mime/mime.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../features/video_list/models/video_file.dart';
-import '../config/app_config.dart';
 import '../utils/logger.dart';
 
+/// Represents a simple video model (customize for your app)
+// class VideoFile {
+//   final String id;
+//   final String name;
+//   final String path;
+//   final int size;
+//   final DateTime lastModified;
+//
+//   const VideoFile({
+//     required this.id,
+//     required this.name,
+//     required this.path,
+//     required this.size,
+//     required this.lastModified,
+//   });
+//
+//   VideoFile copyWith({
+//     String? id,
+//     String? name,
+//     String? path,
+//     int? size,
+//     DateTime? lastModified,
+//   }) {
+//     return VideoFile(
+//       id: id ?? this.id,
+//       name: name ?? this.name,
+//       path: path ?? this.path,
+//       size: size ?? this.size,
+//       lastModified: lastModified ?? this.lastModified,
+//     );
+//   }
+// }
+
 class VideoScanner {
-  static const List<String> videoExtensions =
-      AppConfig.supportedVideoExtensions;
+  static const List<String> _videoExts = [
+    '.mp4',
+    '.avi',
+    '.mkv',
+    '.mov',
+    '.wmv',
+    '.flv',
+    '.webm',
+    '.m4v',
+    '.3gp',
+    '.3g2',
+    '.f4v',
+    '.asf',
+    '.rm',
+    '.rmvb',
+    '.vob',
+    '.ogv',
+    '.gif',
+    '.qt',
+    '.mxf',
+  ];
 
-  /// Test storage access and permissions
-  Future<List<String>> testDirectoryAccess() async {
-    final results = <String>[];
-
+  /// Main entry point
+  Future<List<VideoFile>> scan({List<String>? customDirs}) async {
     try {
-      // Test permissions
-      final hasPermissions = await _hasPermissions();
-      results.add(
-        '🔐 Permissions: ${hasPermissions ? "✅ Granted" : "❌ Denied"}',
-      );
-
-      // Test storage paths
-      final paths = await _getAllStoragePaths();
-      results.add('💾 Storage paths found: ${paths.length}');
-
-      for (final path in paths) {
-        final accessible = await _testPathAccess(path);
-        results.add('  ${accessible ? "✅" : "❌"} $path');
-      }
-    } catch (e) {
-      results.add('❌ Test error: $e');
-    }
-
-    return results;
-  }
-
-  /// Check and request permissions
-  Future<bool> _hasPermissions() async {
-    try {
-      final androidVersion = await _getAndroidVersion();
-      final permission = androidVersion >= 33
-          ? Permission.videos
-          : Permission.storage;
-
-      if (await permission.isGranted) return true;
-
-      final status = await permission.request();
-      return status.isGranted;
-    } catch (e) {
-      appLog('❌ Permission error: $e');
-      return false;
-    }
-  }
-
-  Future<int> _getAndroidVersion() async {
-    try {
-      final deviceInfo = DeviceInfoPlugin();
-      final androidInfo = await deviceInfo.androidInfo;
-      return androidInfo.version.sdkInt;
-    } catch (e) {
-      return 30; // Default to Android 11
-    }
-  }
-
-  /// Scan for video files
-  Future<List<VideoFile>> scanForVideos({
-    List<String>? customDirectories,
-  }) async {
-    try {
-      final hasPermissions = await _hasPermissions();
-      final paths = customDirectories ?? await _getAllStoragePaths();
-
-      if (!hasPermissions) {
-        appLog('⚠️ Limited permissions - scanning app directories only');
-        return await _scanAppDirectories();
+      if (!await _checkPermissions()) {
+        appLog('⚠️ Permissions denied, scanning app dirs only...');
+        return _scanAppDirs();
       }
 
-      appLog('📂 Scanning ${paths.length} directories...');
-      final videos = <VideoFile>[];
+      final paths = customDirs ?? await _getAllStoragePaths();
+      appLog('📂 Found ${paths.length} storage roots...');
 
-      for (final path in paths) {
-        final dir = Directory(path);
-        if (dir.existsSync()) {
-          await _scanDirectory(dir, videos);
-        }
-      }
+      final tasks = paths
+          .map((p) => compute(_scanDirectoryInIsolate, p))
+          .toList();
+      final results = await Future.wait(tasks);
 
-      return _processResults(videos);
+      final allVideos = results.expand((e) => e).toList();
+      return _deduplicate(allVideos);
     } catch (e) {
       appLog('❌ Scan error: $e');
       return [];
     }
   }
 
-  /// Get all storage paths
+  /// Permissions
+  Future<bool> _checkPermissions() async {
+    try {
+      final sdk = await _androidSdkVersion();
+      final permission = sdk >= 33 ? Permission.videos : Permission.storage;
+
+      if (await permission.isGranted) return true;
+      return (await permission.request()).isGranted;
+    } catch (e) {
+      appLog('❌ Permission check failed: $e');
+      return false;
+    }
+  }
+
+  Future<int> _androidSdkVersion() async {
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      return info.version.sdkInt;
+    } catch (_) {
+      return 30;
+    }
+  }
+
+  /// Internal + SD card + App storage
   Future<List<String>> _getAllStoragePaths() async {
-    final pathSet = <String>{};
+    final paths = <String>{};
 
     try {
-      // Internal storage
-      final internalPath = await ExternalPath.getExternalStoragePublicDirectory(
+      final internal = await ExternalPath.getExternalStoragePublicDirectory(
         ExternalPath.DIRECTORY_DOWNLOAD,
       );
-      final basePath = internalPath.replaceAll('/Download', '');
-      pathSet.addAll(_getVideoDirectories(basePath));
+      final base = internal.replaceAll('/Download', '');
+      if (_isAccessible(base)) paths.add(base);
 
-      // External storage (SD cards)
-      final externalPaths = await ExternalPath.getExternalStorageDirectories();
-      if (externalPaths != null) {
-        for (final path in externalPaths) {
-          // Skip if it's the same as internal storage
-          if (path != basePath) {
-            pathSet.addAll(_getVideoDirectories(path));
+      final externals = await ExternalPath.getExternalStorageDirectories();
+      if (externals != null) {
+        for (final p in externals) {
+          if (p != base && _isAccessible(p)) {
+            appLog('💽 Added SD card path: $p');
+            paths.add(p);
           }
         }
       }
 
-      // App directories
-      final appDirs = await _getAppDirectories();
-      pathSet.addAll(appDirs);
+      paths.addAll(await _getAppDirs());
     } catch (e) {
-      appLog('⚠️ Error getting storage paths: $e');
-      // Fallback
-      pathSet.addAll(_getVideoDirectories('/storage/emulated/0'));
+      appLog('⚠️ Error fetching storage paths: $e');
+      paths.add('/storage/emulated/0');
     }
 
-    return pathSet.toList();
+    return paths.toList();
   }
 
-  /// Get video directories for a base path
-  List<String> _getVideoDirectories(String basePath) {
+  Future<List<String>> _getAppDirs() async {
     final dirs = <String>[];
-
-    // Always add the base path to scan everything
-    if (Directory(basePath).existsSync() && _isAccessiblePath(basePath)) {
-      dirs.add(basePath);
-    }
-
-    return dirs;
-  }
-
-  /// Check if a path is accessible without causing permission errors
-  bool _isAccessiblePath(String path) {
-    // Avoid paths that commonly cause permission issues
-    final pathLower = path.toLowerCase();
-    if (pathLower.contains('/android/data') ||
-        pathLower.contains('/android/obb') ||
-        pathLower.contains('/.')) {
-      return false;
-    }
-    return true;
-  }
-
-  /// Get app-specific directories
-  Future<List<String>> _getAppDirectories() async {
-    final dirs = <String>[];
-
     try {
-      final externalDir = await getExternalStorageDirectory();
-      if (externalDir != null) dirs.add(externalDir.path);
-
-      final downloadsDir = await getDownloadsDirectory();
-      if (downloadsDir != null) dirs.add(downloadsDir.path);
+      final ext = await getExternalStorageDirectory();
+      final dl = await getDownloadsDirectory();
+      if (ext != null) dirs.add(ext.path);
+      if (dl != null) dirs.add(dl.path);
     } catch (e) {
-      appLog('⚠️ Error getting app directories: $e');
+      appLog('⚠️ Error fetching app dirs: $e');
     }
-
     return dirs;
   }
 
-  /// Scan app directories only (no permissions needed)
-  Future<List<VideoFile>> _scanAppDirectories() async {
+  /// App-only fallback scan
+  Future<List<VideoFile>> _scanAppDirs() async {
     final videos = <VideoFile>[];
-    final appDirs = await _getAppDirectories();
-
-    for (final path in appDirs) {
-      final dir = Directory(path);
+    for (final p in await _getAppDirs()) {
+      final dir = Directory(p);
       if (dir.existsSync()) {
-        await _scanDirectory(dir, videos);
+        final partial = await compute(_scanDirectoryInIsolate, p);
+        videos.addAll(partial);
       }
     }
-
-    return _processResults(videos);
+    return _deduplicate(videos);
   }
 
-  /// Test if a path is accessible
-  Future<bool> _testPathAccess(String path) async {
-    try {
-      final dir = Directory(path);
-      if (!dir.existsSync()) return false;
-      await dir.list().take(1).toList();
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
+  /// Isolate scanning function (runs in background thread)
+  @pragma('vm:entry-point')
+  static Future<List<VideoFile>> _scanDirectoryInIsolate(String root) async {
+    final videos = <VideoFile>[];
+    final rootDir = Directory(root);
 
-  /// Scan directory for videos
-  Future<void> _scanDirectory(
-    Directory directory,
-    List<VideoFile> videos,
-  ) async {
-    try {
-      // Check if we should skip this directory entirely
-      if (_shouldSkipDirectory(directory.path)) {
-        return;
-      }
+    if (!rootDir.existsSync()) return videos;
+    final skipDirs = {'proc', 'sys', 'dev', 'lost+found'};
 
-      appLog('🔍 Scanning: ${directory.path}');
+    Future<void> walk(Directory dir) async {
+      try {
+        await for (final entity in dir.list(followLinks: false)) {
+          if (entity is Directory) {
+            final name = entity.path.split('/').last.toLowerCase();
+            if (name.startsWith('.') ||
+                entity.path.contains('/android/data') ||
+                entity.path.contains('/android/obb') ||
+                skipDirs.contains(name) ||
+                entity.path.split('/').length > 10) {
+              continue;
+            }
+            await walk(entity);
+          } else if (entity is File) {
+            final path = entity.path.toLowerCase();
+            final extIndex = path.lastIndexOf('.');
+            if (extIndex == -1) continue;
+            final ext = path.substring(extIndex);
 
-      await for (final entity in directory.list(followLinks: false)) {
-        if (entity is Directory) {
-          // Recursively scan subdirectories if they're not skipped
-          if (!_shouldSkipDirectory(entity.path)) {
-            await _scanDirectory(entity, videos);
-          } else {
-            appLog('⏭️ Skipped: ${entity.path}');
-          }
-        } else if (entity is File) {
-          if (_isVideoFile(entity.path)) {
-            try {
-              if (await _isFileAccessible(entity)) {
-                final videoFile = await _createVideoFile(entity);
-                videos.add(videoFile);
-                appLog('📹 Found video: ${entity.path}');
-              } else {
-                appLog('❌ Inaccessible: ${entity.path}');
-              }
-            } catch (e) {
-              appLog('⚠️ Error processing ${entity.path}: $e');
+            if (_videoExts.contains(ext) || _isVideoMime(path)) {
+              try {
+                final stat = await entity.stat();
+                if (stat.size > 0) {
+                  videos.add(
+                    VideoFile(
+                      id: stat.modified.millisecondsSinceEpoch.toString(),
+                      name: entity.uri.pathSegments.last,
+                      path: entity.path,
+                      size: stat.size,
+                      lastModified: stat.modified,
+                    ),
+                  );
+                }
+              } catch (_) {}
             }
           }
         }
-      }
-    } catch (e) {
-      // Only log permission errors for debugging, don't spam logs
-      if (e.toString().contains('Permission denied')) {
-        appLog('🔒 Permission denied: ${directory.path}');
-      } else {
-        appLog('⚠️ Error scanning ${directory.path}: $e');
-      }
+      } catch (_) {}
     }
+
+    await walk(rootDir);
+    return videos;
   }
 
-  bool _isVideoFile(String path) {
-    final pathLower = path.toLowerCase();
-
-    // Check by extension first
-    final lastDotIndex = pathLower.lastIndexOf('.');
-    if (lastDotIndex != -1) {
-      final ext = pathLower.substring(lastDotIndex);
-      if (videoExtensions.contains(ext)) {
-        return true;
-      }
-    }
-
-    // Common video extensions that might not be in config
-    const commonVideoExts = {
-      '.mp4',
-      '.avi',
-      '.mkv',
-      '.mov',
-      '.wmv',
-      '.flv',
-      '.webm',
-      '.m4v',
-      '.3gp',
-      '.3g2',
-      '.f4v',
-      '.asf',
-      '.rm',
-      '.rmvb',
-      '.vob',
-      '.ogv',
-      '.drc',
-      '.gif',
-      '.gifv',
-      '.mng',
-      '.qt',
-      '.yuv',
-      '.roq',
-      '.svi',
-      '.mxf',
-    };
-
-    if (lastDotIndex != -1) {
-      final ext = pathLower.substring(lastDotIndex);
-      if (commonVideoExts.contains(ext)) {
-        return true;
-      }
-    }
-
-    // Fallback to MIME type detection
+  static bool _isVideoMime(String path) {
     try {
-      final mimeType = lookupMimeType(path);
-      if (mimeType != null && mimeType.startsWith('video/')) {
-        appLog('📹 Detected by MIME: $mimeType for ${path.split('/').last}');
-        return true;
-      }
-    } catch (e) {
-      // MIME detection failed, continue
-    }
-
-    return false;
-  }
-
-  bool _shouldSkipDirectory(String path) {
-    final name = path.split('/').last.toLowerCase();
-    final pathLower = path.toLowerCase();
-
-    // Skip hidden directories (starting with .)
-    if (name.startsWith('.')) return true;
-
-    // Skip Android system directories that cause permission errors
-    if (pathLower.contains('/android/data') ||
-        pathLower.contains('/android/obb')) {
-      return true;
-    }
-
-    // Skip only critical system directories
-    const criticalSkipDirs = {'proc', 'sys', 'dev', 'lost+found'};
-
-    if (criticalSkipDirs.contains(name)) return true;
-
-    // Skip very deep nested directories (performance) - increased limit
-    if (path.split('/').length > 10) return true;
-
-    return false;
-  }
-
-  Future<bool> _isFileAccessible(File file) async {
-    try {
-      final stat = file.statSync();
-      return stat.type == FileSystemEntityType.file && stat.size > 0;
-    } catch (e) {
+      final mime = lookupMimeType(path);
+      return mime?.startsWith('video/') ?? false;
+    } catch (_) {
       return false;
     }
   }
 
-  /// Create video file with duration
-  Future<VideoFile> _createVideoFile(File file) async {
-    final baseVideoFile = VideoFile.fromFile(file);
+  bool _isAccessible(String path) =>
+      !path.contains('/android/data') &&
+      !path.contains('/android/obb') &&
+      Directory(path).existsSync();
 
-    try {
-      final player = Player();
-      await player.open(Media(file.path));
-
-      // Wait for duration to be available
-      Duration? duration;
-      await for (final d in player.stream.duration) {
-        if (d != Duration.zero) {
-          duration = d;
-          break;
-        }
-        // Timeout after 3 seconds
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-
-      await player.dispose();
-
-      if (duration != null && duration != Duration.zero) {
-        return baseVideoFile.copyWith(duration: duration);
-      }
-      return baseVideoFile;
-    } catch (e) {
-      return baseVideoFile;
+  /// Remove duplicates
+  List<VideoFile> _deduplicate(List<VideoFile> videos) {
+    final map = <String, VideoFile>{};
+    for (final v in videos) {
+      final key =
+          '${v.name}_${v.size}_${v.lastModified.millisecondsSinceEpoch}';
+      map[key] = v;
     }
-  }
-
-  /// Validate existing video files and remove non-existent ones
-  Future<List<VideoFile>> validateVideoFiles(List<VideoFile> videos) async {
-    final validVideos = <VideoFile>[];
-    int removedCount = 0;
-
-    for (final video in videos) {
-      try {
-        final file = File(video.path);
-        // ignore: avoid_slow_async_io
-        if (await file.exists() && await _isFileAccessible(file)) {
-          validVideos.add(video);
-        } else {
-          removedCount++;
-          appLog('🗑️ Removed non-existent video: ${video.name}');
-        }
-      } catch (e) {
-        removedCount++;
-        appLog('⚠️ Error validating ${video.name}: $e');
-      }
-    }
-
-    if (removedCount > 0) {
-      appLog('🧹 Cleaned up $removedCount invalid video files');
-    }
-
-    return validVideos;
-  }
-
-  /// Process and deduplicate results
-  List<VideoFile> _processResults(List<VideoFile> videos) {
-    final unique = <String, VideoFile>{};
-
-    for (final video in videos) {
-      try {
-        final canonical = File(video.path).resolveSymbolicLinksSync();
-        unique.putIfAbsent(
-          canonical,
-          () => video.copyWith(
-            path: canonical,
-            id: canonical.hashCode.toString(),
-          ),
-        );
-      } catch (_) {
-        final key =
-            '${video.name}_${video.size}_${video.lastModified.millisecondsSinceEpoch}';
-        unique.putIfAbsent(key, () => video);
-      }
-    }
-
-    final result = unique.values.toList()
+    final unique = map.values.toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
-    appLog(
-      '✅ Found ${result.length} unique videos (${videos.length - result.length} duplicates removed)',
-    );
-    return result;
+    appLog('✅ Found ${unique.length} unique videos');
+    return unique;
   }
 }
