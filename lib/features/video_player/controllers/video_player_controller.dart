@@ -1,484 +1,443 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:screen_brightness/screen_brightness.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:volume_controller/volume_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 class VideoPlayerController extends GetxController {
-  // Better Player controller
-  BetterPlayerController? _betterPlayerController;
-  BetterPlayerController? get betterPlayerController => _betterPlayerController;
+  BetterPlayerController? _controller;
+  BetterPlayerController? get player => _controller;
 
-  // Core state variables
-  final RxBool _isInitialized = false.obs;
-  final RxBool _isPlaying = false.obs;
-  final RxBool _isLoading = false.obs;
-  final RxBool _hasError = false.obs;
-  final RxString _errorMessage = ''.obs;
-  final RxBool _isControlsVisible = true.obs;
-  final RxBool _isFullScreen = false.obs;
-  final RxBool _isBuffering = false.obs;
-  final RxBool _isCompleted = false.obs;
+  // Reactive state
+  final isInitialized = false.obs;
+  final isPlaying = false.obs;
+  final isLoading = false.obs;
+  final hasError = false.obs;
+  final errorMessage = ''.obs;
+  final isControlsVisible = true.obs;
+  final isFullScreen = false.obs;
+  final isBuffering = false.obs;
+  final isCompleted = false.obs;
 
-  // Media properties
-  final RxDouble _volume = 1.0.obs;
-  final RxDouble _playbackSpeed = 1.0.obs;
-  final Rx<Duration> _position = Duration.zero.obs;
-  final Rx<Duration> _duration = Duration.zero.obs;
-  final RxDouble _aspectRatio = (16 / 9).obs;
-  final RxString _videoResolution = ''.obs;
+  // Media
+  final volume = 1.0.obs;
+  final speed = 1.0.obs;
+  final position = Duration.zero.obs;
+  final duration = Duration.zero.obs;
+  final aspectRatio = (16 / 9).obs;
+  final resolution = ''.obs;
+  final brightness = 0.5.obs;
 
   // Settings
-  final RxBool _autoHideControls = true.obs;
-  final RxBool _rememberPosition = true.obs;
-  final RxBool _loopVideo = false.obs;
-  final RxBool _gesturesEnabled = true.obs;
+  final autoHide = true.obs;
+  final rememberPosition = true.obs;
+  final loop = false.obs;
+  final gesturesEnabled = true.obs;
+  final pipEnabled = false.obs;
 
-  // Timers
-  Timer? _hideControlsTimer;
-  Timer? _positionUpdateTimer;
-  String? _currentVideoPath;
+  // Playlist
+  final playlist = <String>[].obs;
+  final currentIndex = 0.obs;
 
-  // Getters
-  bool get isInitialized => _isInitialized.value;
-  bool get isPlaying => _isPlaying.value;
-  bool get isLoading => _isLoading.value;
-  bool get hasError => _hasError.value;
-  String get errorMessage => _errorMessage.value;
-  bool get isControlsVisible => _isControlsVisible.value;
-  bool get isFullScreen => _isFullScreen.value;
-  bool get isBuffering => _isBuffering.value;
-  bool get isCompleted => _isCompleted.value;
-  double get volume => _volume.value;
-  double get playbackSpeed => _playbackSpeed.value;
-  Duration get position => _position.value;
-  Duration get duration => _duration.value;
-  double get aspectRatio => _aspectRatio.value;
-  String get videoResolution => _videoResolution.value;
-  bool get autoHideControls => _autoHideControls.value;
-  bool get rememberPosition => _rememberPosition.value;
-  bool get loopVideo => _loopVideo.value;
-  bool get gesturesEnabled => _gesturesEnabled.value;
+  // Screenshot
+  GlobalKey? screenshotKey;
 
-  double get progress {
-    if (duration.inMilliseconds <= 0) return 0.0;
-    return position.inMilliseconds / duration.inMilliseconds;
-  }
+  Timer? _hideTimer, _posTimer;
+  String? _path;
 
-  final List<double> availableSpeeds = [
-    0.25,
-    0.5,
-    0.75,
-    1.0,
-    1.25,
-    1.5,
-    1.75,
-    2.0,
-  ];
+  List<double> get speeds => [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
+  double get progress => duration.value.inMilliseconds == 0
+      ? 0
+      : position.value.inMilliseconds / duration.value.inMilliseconds;
 
   @override
   void onInit() {
     super.onInit();
     _enableWakelock();
+    _initializeBrightness();
+    _initializeVolume();
   }
 
-  Future<void> initializePlayer(String videoPath) async {
+  Future<void> _initializeBrightness() async {
     try {
-      _isLoading.value = true;
-      _hasError.value = false;
-      _errorMessage.value = '';
-      _isCompleted.value = false;
-      _currentVideoPath = videoPath;
-
-      final file = File(videoPath);
-      if (!file.existsSync()) {
-        throw Exception('Video file not found: $videoPath');
-      }
-
-      // Load saved position if enabled
-      Duration? savedPosition;
-      if (_rememberPosition.value) {
-        savedPosition = await _loadSavedPosition(videoPath);
-      }
-
-      // Create Better Player configuration
-      final betterPlayerConfiguration = BetterPlayerConfiguration(
-        aspectRatio: 16 / 9,
-        fit: BoxFit.contain,
-        autoPlay: true,
-        looping: _loopVideo.value,
-        startAt: savedPosition,
-        controlsConfiguration: const BetterPlayerControlsConfiguration(
-          showControls: false, // We'll use custom controls
-          enableProgressText: false,
-          enableProgressBar: false,
-          enablePlayPause: false,
-          enableMute: false,
-          enableFullscreen: false,
-          enableSkips: false,
-          enableAudioTracks: false,
-          enableSubtitles: false,
-          enableQualities: false,
-          enablePlaybackSpeed: false,
-        ),
-        eventListener: _onBetterPlayerEvent,
-      );
-
-      // Create data source
-      final betterPlayerDataSource = BetterPlayerDataSource(
-        BetterPlayerDataSourceType.file,
-        file.path,
-        notificationConfiguration: const BetterPlayerNotificationConfiguration(
-          showNotification: true,
-        ),
-      );
-
-      // Initialize Better Player
-      _betterPlayerController = BetterPlayerController(
-        betterPlayerConfiguration,
-      );
-      await _betterPlayerController!.setupDataSource(betterPlayerDataSource);
-
-      _isInitialized.value = true;
-      _isLoading.value = false;
-
-      // Start position update timer
-      _startPositionUpdateTimer();
-
-      if (_autoHideControls.value) {
-        _startHideControlsTimer();
-      }
+      final currentBrightness = await ScreenBrightness().application;
+      brightness.value = currentBrightness;
     } catch (e) {
-      _hasError.value = true;
-      _errorMessage.value = _getDetailedErrorMessage(e.toString(), videoPath);
-      _isLoading.value = false;
-      _dispose();
+      brightness.value = 0.5; // Default brightness
     }
   }
 
-  void _onBetterPlayerEvent(BetterPlayerEvent event) {
-    switch (event.betterPlayerEventType) {
+  Future<void> _initializeVolume() async {
+    try {
+      final currentVolume = await VolumeController.instance.getVolume();
+      volume.value = currentVolume;
+    } catch (e) {
+      volume.value = 1.0; // Default volume
+    }
+  }
+
+  Future<void> initialize(String path) async {
+    try {
+      _resetState();
+      isLoading.value = true;
+      _path = path;
+
+      // ignore: only_throw_errors
+      if (!File(path).existsSync()) throw 'Video file not found: $path';
+
+      final startAt = rememberPosition.value
+          ? await _loadSavedPosition(path)
+          : null;
+
+      _controller = BetterPlayerController(
+        BetterPlayerConfiguration(
+          aspectRatio: aspectRatio.value,
+          fit: BoxFit.contain,
+          autoPlay: true,
+          looping: loop.value,
+          startAt: startAt,
+          controlsConfiguration: const BetterPlayerControlsConfiguration(
+            showControls: false,
+          ),
+          eventListener: _onEvent,
+        ),
+      );
+
+      await _controller!.setupDataSource(
+        BetterPlayerDataSource(BetterPlayerDataSourceType.file, path),
+      );
+
+      isInitialized.value = true;
+      isLoading.value = false;
+
+      _startTimers();
+    } catch (e) {
+      _setError(_getErrorMessage(e.toString()));
+    }
+  }
+
+  void _onEvent(BetterPlayerEvent e) {
+    switch (e.betterPlayerEventType) {
       case BetterPlayerEventType.initialized:
-        _updateVideoInfo();
+        _updateInfo();
         break;
       case BetterPlayerEventType.play:
-        _isPlaying.value = true;
-        if (_autoHideControls.value) {
-          _startHideControlsTimer();
-        }
+        isPlaying.value = true;
+        _autoHideControls();
         break;
       case BetterPlayerEventType.pause:
-        _isPlaying.value = false;
-        _showControls();
-        break;
-      case BetterPlayerEventType.seekTo:
-        // Handle seek
+        isPlaying.value = false;
+        showControls();
         break;
       case BetterPlayerEventType.finished:
-        _isCompleted.value = true;
-        _showControls();
+        isCompleted.value = true;
+        showControls();
         break;
       case BetterPlayerEventType.bufferingStart:
-        _isBuffering.value = true;
+        isBuffering.value = true;
         break;
       case BetterPlayerEventType.bufferingEnd:
-        _isBuffering.value = false;
+        isBuffering.value = false;
         break;
       case BetterPlayerEventType.exception:
-        _hasError.value = true;
-        _errorMessage.value = 'Playback error occurred';
+        _setError('Playback error occurred');
         break;
       default:
         break;
     }
   }
 
-  void _updateVideoInfo() {
-    if (_betterPlayerController?.videoPlayerController?.value != null) {
-      final videoValue = _betterPlayerController!.videoPlayerController!.value;
-      _duration.value = videoValue.duration ?? Duration.zero;
-      _aspectRatio.value = videoValue.aspectRatio;
-
-      // Get video resolution
-      final size = videoValue.size;
-      if (size != null &&
-          size != Size.zero &&
-          size.width > 0 &&
-          size.height > 0) {
-        _videoResolution.value = '${size.width.toInt()}×${size.height.toInt()}';
-      }
+  void _updateInfo() {
+    final v = _controller?.videoPlayerController?.value;
+    if (v == null) return;
+    duration.value = v.duration ?? Duration.zero;
+    aspectRatio.value = v.aspectRatio;
+    final s = v.size;
+    if (s != null && s.width > 0 && s.height > 0) {
+      resolution.value = '${s.width.toInt()}×${s.height.toInt()}';
     }
   }
 
-  void _startPositionUpdateTimer() {
-    _positionUpdateTimer?.cancel();
-    _positionUpdateTimer = Timer.periodic(const Duration(milliseconds: 500), (
-      timer,
-    ) {
-      if (_betterPlayerController?.videoPlayerController?.value != null) {
-        _position.value =
-            _betterPlayerController!.videoPlayerController!.value.position;
-
-        // Save position periodically
-        if (_rememberPosition.value && _currentVideoPath != null) {
-          _saveCurrentPosition(_currentVideoPath!);
-        }
-      }
+  void _startTimers() {
+    _posTimer?.cancel();
+    _posTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+      final v = _controller?.videoPlayerController?.value;
+      if (v == null) return;
+      position.value = v.position;
+      if (rememberPosition.value && _path != null) await _savePosition(_path!);
     });
+    _autoHideControls();
   }
 
-  String _getDetailedErrorMessage(String error, String videoPath) {
-    if (error.contains('Video file not found')) {
-      return 'Video file not found. The file may have been moved or deleted.';
-    }
-    if (error.contains('permission') || error.contains('Permission')) {
-      return 'Permission denied. Please grant storage access to play videos.';
-    }
-    if (error.contains('format') || error.contains('codec')) {
-      return 'This video format is not supported on your device.';
-    }
-    if (error.contains('Playback error')) {
-      return 'An error occurred during video playback. The file may be corrupted or incompatible.';
-    }
-    return error.isNotEmpty
-        ? error
-        : 'An unexpected error occurred while trying to play the video.';
-  }
-
-  // Playback controls
-  Future<void> play() async {
-    await _betterPlayerController?.play();
-  }
-
-  Future<void> pause() async {
-    await _betterPlayerController?.pause();
-  }
-
-  void togglePlayPause() {
-    if (_isPlaying.value) {
-      pause();
-    } else {
-      play();
-    }
-  }
-
-  void seekTo(Duration position) {
-    _betterPlayerController?.seekTo(position);
-  }
-
-  void seekToPercentage(double percentage) {
-    final position = Duration(
-      milliseconds:
-          (_duration.value.inMilliseconds * percentage.clamp(0.0, 1.0)).round(),
+  void _autoHideControls() {
+    _hideTimer?.cancel();
+    if (!autoHide.value || !isPlaying.value) return;
+    _hideTimer = Timer(
+      const Duration(seconds: 3),
+      () => isControlsVisible.value = false,
     );
-    seekTo(position);
   }
 
-  void seekBackward([int seconds = 10]) {
-    final newPosition = _position.value - Duration(seconds: seconds);
-    seekTo(newPosition.isNegative ? Duration.zero : newPosition);
+  // --- Playback ---
+  Future<void> play() => _controller?.play() ?? Future.value();
+  Future<void> pause() => _controller?.pause() ?? Future.value();
+  void togglePlay() => isPlaying.value ? pause() : play();
+
+  void seek(Duration d) => _controller?.seekTo(d);
+  void seekPercent(double p) => seek(
+    Duration(
+      milliseconds: (duration.value.inMilliseconds * p.clamp(0, 1)).round(),
+    ),
+  );
+  void seekForward([int s = 10]) {
+    final newPosition = position.value + Duration(seconds: s);
+    final safePosition = newPosition > duration.value
+        ? duration.value
+        : newPosition;
+    seek(safePosition);
   }
 
-  void seekForward([int seconds = 10]) {
-    final newPosition = _position.value + Duration(seconds: seconds);
-    seekTo(newPosition > _duration.value ? _duration.value : newPosition);
+  void seekBackward([int s = 10]) {
+    final newPosition = position.value - Duration(seconds: s);
+    seek(newPosition.isNegative ? Duration.zero : newPosition);
   }
 
-  // Volume controls
-  void setVolume(double value) {
-    final clampedValue = value.clamp(0.0, 1.0);
-    _volume.value = clampedValue;
-    _betterPlayerController?.setVolume(clampedValue);
-  }
-
-  void toggleMute() {
-    if (_volume.value > 0) {
-      setVolume(0.0);
-    } else {
-      setVolume(1.0);
-    }
-  }
-
-  // Speed controls
-  void setPlaybackSpeed(double speed) {
-    _playbackSpeed.value = speed;
-    _betterPlayerController?.setSpeed(speed);
-  }
-
-  // Controls management
+  // --- Controls ---
   void showControls() {
-    _isControlsVisible.value = true;
-    if (_autoHideControls.value && _isPlaying.value) {
-      _startHideControlsTimer();
-    }
+    isControlsVisible.value = true;
+    _autoHideControls();
   }
 
-  void hideControls() {
-    _isControlsVisible.value = false;
-    _cancelHideControlsTimer();
+  void toggleControls() => isControlsVisible.toggle();
+
+  // --- Volume / Speed ---
+  void setVolume(double v) {
+    volume.value = v.clamp(0, 1);
+    _controller?.setVolume(volume.value);
+    VolumeController.instance.setVolume(volume.value);
   }
 
-  void toggleControls() {
-    if (_isControlsVisible.value) {
-      hideControls();
-    } else {
-      showControls();
-    }
+  void toggleMute() => setVolume(volume.value > 0 ? 0 : 1);
+
+  void setSpeed(double s) {
+    speed.value = s;
+    _controller?.setSpeed(s);
   }
 
-  void _showControls() {
-    showControls();
-  }
-
-  void _startHideControlsTimer() {
-    _cancelHideControlsTimer();
-    if (_autoHideControls.value && _isPlaying.value) {
-      _hideControlsTimer = Timer(const Duration(seconds: 3), () {
-        if (_isPlaying.value) {
-          _isControlsVisible.value = false;
-        }
-      });
-    }
-  }
-
-  void _cancelHideControlsTimer() {
-    _hideControlsTimer?.cancel();
-    _hideControlsTimer = null;
-  }
-
-  // Fullscreen controls
-  void toggleFullScreen() {
-    _isFullScreen.value = !_isFullScreen.value;
-
-    if (_isFullScreen.value) {
-      _enterFullScreenMode();
-    } else {
-      _exitFullScreenMode();
-    }
-  }
-
-  void _enterFullScreenMode() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-  }
-
-  void _exitFullScreenMode() {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  }
-
-  // Settings
-  void setAutoHideControls(bool enabled) {
-    _autoHideControls.value = enabled;
-    if (!enabled) {
-      _cancelHideControlsTimer();
-    } else if (_isPlaying.value) {
-      _startHideControlsTimer();
-    }
-  }
-
-  void setRememberPosition(bool enabled) {
-    _rememberPosition.value = enabled;
-  }
-
-  void setLoopVideo(bool enabled) {
-    _loopVideo.value = enabled;
-    // Update Better Player configuration if needed
-  }
-
-  void setGesturesEnabled(bool enabled) {
-    _gesturesEnabled.value = enabled;
-  }
-
-  // Position saving/loading
-  Future<Duration?> _loadSavedPosition(String videoPath) async {
+  // --- Brightness ---
+  Future<void> setBrightness(double b) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedMs = prefs.getInt('video_position_${videoPath.hashCode}');
-      if (savedMs != null && savedMs > 0) {
-        return Duration(milliseconds: savedMs);
+      brightness.value = b.clamp(0, 1);
+      await ScreenBrightness().setApplicationScreenBrightness(brightness.value);
+    } catch (e) {
+      // Handle brightness setting error
+    }
+  }
+
+  // --- Fullscreen ---
+  void toggleFullscreen() {
+    isFullScreen.toggle();
+    if (isFullScreen.value) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      _resetSystemUi();
+    }
+  }
+
+  // --- Preferences ---
+  void setAutoHide(bool v) => autoHide.value = v;
+  void setRememberPosition(bool v) => rememberPosition.value = v;
+  void setLoop(bool v) {
+    loop.value = v;
+    if (_controller != null) {
+      _controller!.setLooping(v);
+    }
+  }
+
+  void setGesturesEnabled(bool v) => gesturesEnabled.value = v;
+  void setPipEnabled(bool v) => pipEnabled.value = v;
+
+  // --- Playlist ---
+  void setPlaylist(List<String> videos, {int startIndex = 0}) {
+    playlist.value = videos;
+    currentIndex.value = startIndex.clamp(0, videos.length - 1);
+  }
+
+  void nextVideo() {
+    if (playlist.isNotEmpty && currentIndex.value < playlist.length - 1) {
+      currentIndex.value++;
+      final nextPath = playlist[currentIndex.value];
+      initialize(nextPath);
+    }
+  }
+
+  void previousVideo() {
+    if (playlist.isNotEmpty && currentIndex.value > 0) {
+      currentIndex.value--;
+      final prevPath = playlist[currentIndex.value];
+      initialize(prevPath);
+    }
+  }
+
+  // --- Screenshot ---
+  Future<void> takeScreenshot() async {
+    try {
+      if (screenshotKey?.currentContext == null) return;
+
+      final RenderRepaintBoundary boundary =
+          screenshotKey!.currentContext!.findRenderObject()
+              as RenderRepaintBoundary;
+
+      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+
+      if (byteData != null) {
+        final Uint8List pngBytes = byteData.buffer.asUint8List();
+        await _saveScreenshot(pngBytes);
+
+        Get.snackbar(
+          'Screenshot Saved',
+          'Video screenshot saved to gallery',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.black87,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
       }
     } catch (e) {
-      // Handle error silently
+      Get.snackbar(
+        'Screenshot Failed',
+        'Could not save screenshot: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
     }
-    return null;
   }
 
-  Future<void> _saveCurrentPosition(String videoPath) async {
-    if (_position.value > Duration.zero && _duration.value > Duration.zero) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt(
-          'video_position_${videoPath.hashCode}',
-          _position.value.inMilliseconds,
-        );
-      } catch (e) {
-        // Handle error silently
+  Future<void> _saveScreenshot(Uint8List bytes) async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final screenshotsDir = Directory('${directory.path}/screenshots');
+
+      if (!await screenshotsDir.exists()) {
+        await screenshotsDir.create(recursive: true);
       }
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${screenshotsDir.path}/screenshot_$timestamp.png');
+      await file.writeAsBytes(bytes);
+    } catch (e) {
+      rethrow;
     }
   }
 
-  // Utility methods
-  void retryInitialization(String videoPath) {
-    _dispose();
-    initializePlayer(videoPath);
+  // --- Position save/load ---
+  Future<void> _savePosition(String path) async {
+    try {
+      if (position.value > Duration.zero) {
+        final prefs = await SharedPreferences.getInstance();
+        prefs.setInt('pos_${path.hashCode}', position.value.inMilliseconds);
+      }
+    } catch (_) {}
+  }
+
+  Future<Duration?> _loadSavedPosition(String path) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ms = prefs.getInt('pos_${path.hashCode}');
+      return ms != null ? Duration(milliseconds: ms) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // --- Utility ---
+  void retry(String path) {
+    disposePlayer();
+    initialize(path);
   }
 
   void restart() {
-    seekTo(Duration.zero);
+    seek(Duration.zero);
     play();
+  }
+
+  String _getErrorMessage(String e) {
+    if (e.contains('not found')) return 'Video file not found.';
+    if (e.contains('permission')) {
+      return 'Permission denied. Enable storage access.';
+    }
+    if (e.contains('format') || e.contains('codec')) {
+      return 'Unsupported video format.';
+    }
+    return 'Playback error: $e';
+  }
+
+  void _setError(String msg) {
+    hasError.value = true;
+    errorMessage.value = msg;
+    isLoading.value = false;
+    disposePlayer();
   }
 
   Future<void> _enableWakelock() async {
     try {
       await WakelockPlus.enable();
-    } catch (e) {
-      // Handle error silently
-    }
+    } catch (_) {}
   }
 
   Future<void> _disableWakelock() async {
     try {
       await WakelockPlus.disable();
-    } catch (e) {
-      // Handle error silently
-    }
+    } catch (_) {}
   }
 
-  void _dispose() {
-    _positionUpdateTimer?.cancel();
-    _positionUpdateTimer = null;
-
-    _betterPlayerController?.dispose();
-    _betterPlayerController = null;
-
-    _isInitialized.value = false;
-    _isCompleted.value = false;
-  }
-
-  @override
-  void onClose() {
-    _cancelHideControlsTimer();
-
-    // Reset system UI
+  void _resetSystemUi() {
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,
     );
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
 
+  void _resetState() {
+    isInitialized(false);
+    hasError(false);
+    errorMessage('');
+    isCompleted(false);
+  }
+
+  void disposePlayer() {
+    _posTimer?.cancel();
+    _hideTimer?.cancel();
+    _controller?.dispose();
+    _controller = null;
+  }
+
+  @override
+  void onClose() {
+    _resetSystemUi();
     _disableWakelock();
-    _dispose();
+    disposePlayer();
     super.onClose();
   }
 }

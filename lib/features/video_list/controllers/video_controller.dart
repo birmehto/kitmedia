@@ -12,148 +12,129 @@ class VideoController extends BaseController {
   final RxList<VideoFile> _videos = <VideoFile>[].obs;
   final RxString _searchQuery = ''.obs;
 
-  List<VideoFile> get videos => _videos;
-  String get searchQuery => _searchQuery.value;
-
-  List<VideoFile> get filteredVideos {
-    if (_searchQuery.value.isEmpty) {
-      return _videos;
-    }
-    return _videos.where((video) {
-      return video.name.toLowerCase().contains(
-            _searchQuery.value.toLowerCase(),
-          ) ||
-          video.path.toLowerCase().contains(_searchQuery.value.toLowerCase());
-    }).toList();
-  }
-
   final VideoScanner _videoScanner = VideoScanner();
   final VideoDeleteService _deleteService = VideoDeleteService();
 
+  List<VideoFile> get videos => _videos;
+  String get searchQuery => _searchQuery.value;
+
+  /// Computed filtered list
+  List<VideoFile> get filteredVideos {
+    final query = _searchQuery.value.trim().toLowerCase();
+    if (query.isEmpty) return _videos;
+    return _videos.where((v) {
+      final name = v.name.toLowerCase();
+      final path = v.path.toLowerCase();
+      return name.contains(query) || path.contains(query);
+    }).toList();
+  }
+
+  /// Scan all storage (internal + SD + app dirs)
   Future<void> scanVideos() async {
     await executeWithLoading(() async {
-      // Test directory access and permissions
-      final accessResults = await _videoScanner.testDirectoryAccess();
-      appLog('🔍 Directory access test:');
-      for (final result in accessResults) {
-        appLog('  $result');
+      appLog('🔍 Starting video scan...');
+
+      final videos = await _videoScanner.scan();
+      if (videos.isEmpty) {
+        appLog('⚠️ No videos found during scan.');
       }
 
-      // Scan for videos (this will handle permissions internally)
-      final videos = await _videoScanner.scanForVideos();
-
-      // Validate the found videos to ensure they still exist
-      final validVideos = await _videoScanner.validateVideoFiles(videos);
-
+      // Validate found files (ensure they still exist)
+      final validVideos = await _validateVideos(videos);
       _videos.assignAll(validVideos);
-      appLog('✅ Found ${validVideos.length} valid videos');
 
+      appLog('✅ Found ${validVideos.length} valid videos.');
       return validVideos;
     }, successMessage: 'Found ${_videos.length} videos');
   }
 
-  void updateSearchQuery(String query) {
-    _searchQuery.value = query;
-  }
+  /// Search helpers
+  void updateSearchQuery(String query) => _searchQuery.value = query;
+  void clearSearch() => _searchQuery.value = '';
 
-  void clearSearch() {
-    _searchQuery.value = '';
-  }
-
+  /// Delete a video and update list accordingly
   Future<void> deleteVideo(VideoFile video) async {
     final result = await _deleteService.deleteVideoWithResult(video);
-
     switch (result) {
       case DeleteResult.success:
-        _videos.remove(video);
-        appLog(
-          'Video successfully deleted and removed from list: ${video.name}',
-        );
-        break;
       case DeleteResult.fileNotFound:
-        // File doesn't exist, remove it from list anyway
         _videos.remove(video);
-        appLog('Removed non-existent video from list: ${video.name}');
-
+        appLog('🗑️ Removed video: ${video.name}');
         break;
       case DeleteResult.permissionDenied:
       case DeleteResult.otherError:
-        // Keep the video in the list since deletion failed for other reasons
-        appLog('Failed to delete video, keeping in list: ${video.name}');
+        appLog('⚠️ Failed to delete: ${video.name}');
         break;
     }
   }
 
-  /// Validate current video list and remove non-existent files
+  /// Validate & filter only existing files
+  Future<List<VideoFile>> _validateVideos(List<VideoFile> videos) async {
+    final valid = <VideoFile>[];
+    for (final v in videos) {
+      if (await File(v.path).exists()) valid.add(v);
+    }
+    return valid;
+  }
+
+  /// Clean up invalid videos already in memory
   Future<void> validateCurrentVideos() async {
     if (_videos.isEmpty) return;
+    final validVideos = await _validateVideos(_videos);
+    final removed = _videos.length - validVideos.length;
 
-    final validVideos = await _videoScanner.validateVideoFiles(_videos);
-    final removedCount = _videos.length - validVideos.length;
-
-    if (removedCount > 0) {
+    if (removed > 0) {
       _videos.assignAll(validVideos);
-      appLog('🧹 Cleaned up $removedCount invalid videos from current list');
-
-      // Show user feedback if significant cleanup happened
-      if (removedCount > 3) {
-        appLog('Removed $removedCount missing files from list');
-      }
+      appLog('🧹 Cleaned $removed invalid videos.');
     }
   }
 
-  /// Force cleanup of invalid videos
+  /// Manual cleanup
   Future<void> cleanupInvalidVideos() async {
     await executeWithLoading(() async {
       await validateCurrentVideos();
       return _videos.length;
-    }, successMessage: 'Video list cleaned up');
+    }, successMessage: 'Video list cleaned');
   }
 
-  /// Remove all non-existent files from the current list immediately
+  /// Remove missing files instantly
   Future<void> removeNonExistentFiles() async {
     if (_videos.isEmpty) return;
 
-    final existingVideos = <VideoFile>[];
+    final existing = <VideoFile>[];
     int removedCount = 0;
 
-    for (final video in _videos) {
-      final file = File(video.path);
-      if (file.existsSync()) {
-        existingVideos.add(video);
+    for (final v in _videos) {
+      if (File(v.path).existsSync()) {
+        existing.add(v);
       } else {
         removedCount++;
-        appLog('🗑️ Removing non-existent file: ${video.name}');
+        appLog('🗑️ Removing missing: ${v.name}');
       }
     }
 
     if (removedCount > 0) {
-      _videos.assignAll(existingVideos);
-      appLog('🧹 Removed $removedCount non-existent files from list');
+      _videos.assignAll(existing);
+      appLog('🧹 Removed $removedCount non-existent files.');
     } else {
-      appLog('All videos in your list exist on the device');
+      appLog('✅ All videos are valid.');
     }
   }
 
-  @override
-  Future<void> refresh() async {
-    await scanVideos();
+  /// For manual stale-file fix
+  Future<void> fixStaleFiles() async {
+    appLog('🔧 Fixing stale files...');
+    await removeNonExistentFiles();
+    appLog('✅ Stale file cleanup complete.');
   }
 
-  /// Quick fix for the current issue - call this to clean up stale files
-  Future<void> fixStaleFiles() async {
-    appLog('🔧 Starting stale file cleanup...');
-    await removeNonExistentFiles();
-    appLog('✅ Stale file cleanup completed');
-  }
+  @override
+  Future<void> refresh() async => scanVideos();
 
   @override
   void onInit() {
     super.onInit();
-    // Automatically validate videos when controller initializes
-    ever(_videos, (_) {
-      // Validate videos periodically when list changes
-      validateCurrentVideos();
-    });
+    // Auto-validate when list changes
+    ever(_videos, (_) => validateCurrentVideos());
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../controllers/video_player_controller.dart';
+import '../widgets/video_error_widget.dart';
 import '../widgets/video_player_widget.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
@@ -19,24 +20,50 @@ class VideoPlayerScreen extends StatefulWidget {
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
 
-class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late VideoPlayerController _controller;
+class _VideoPlayerScreenState extends State<VideoPlayerScreen>
+    with WidgetsBindingObserver {
+  late final VideoPlayerController _controller;
+  final GlobalKey _screenshotKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    _controller = Get.put(VideoPlayerController());
+    WidgetsBinding.instance.addObserver(this);
 
-    // Initialize player after widget is built
+    // Use a unique tag based on the video path
+    _controller = Get.put(VideoPlayerController(), tag: widget.videoPath);
+    _controller.screenshotKey = _screenshotKey;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controller.initializePlayer(widget.videoPath);
+      if (mounted) _controller.initialize(widget.videoPath);
     });
   }
 
   @override
   void dispose() {
-    Get.delete<VideoPlayerController>();
+    WidgetsBinding.instance.removeObserver(this);
+    if (Get.isRegistered<VideoPlayerController>(tag: widget.videoPath)) {
+      Get.delete<VideoPlayerController>(tag: widget.videoPath, force: true);
+    }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    switch (state) {
+      case AppLifecycleState.paused:
+        _controller.pause();
+        break;
+      case AppLifecycleState.resumed:
+        // Optionally resume playback
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        break;
+    }
   }
 
   @override
@@ -44,26 +71,34 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Obx(() {
+        // Handle error state
+        if (_controller.hasError.value) {
+          return VideoErrorWidget(
+            error: _controller.errorMessage.value,
+            onRetry: () => _controller.retry(widget.videoPath),
+          );
+        }
+
+        final fullScreen = _controller.isFullScreen.value;
+
+        final overlayStyle = SystemUiOverlayStyle.light.copyWith(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: fullScreen
+              ? Colors.transparent
+              : Colors.black,
+        );
+
         return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: _controller.isFullScreen
-              ? SystemUiOverlayStyle.dark.copyWith(
-                  statusBarColor: Colors.transparent,
-                  systemNavigationBarColor: Colors.transparent,
-                  statusBarIconBrightness: Brightness.light,
-                  systemNavigationBarIconBrightness: Brightness.light,
-                )
-              : SystemUiOverlayStyle.dark.copyWith(
-                  statusBarColor: Colors.transparent,
-                  systemNavigationBarColor: Colors.black,
-                  statusBarIconBrightness: Brightness.light,
-                  systemNavigationBarIconBrightness: Brightness.light,
-                ),
+          value: overlayStyle,
           child: SafeArea(
             top: false,
             bottom: false,
-            child: VideoPlayerWidget(
-              videoTitle: widget.videoTitle,
-              videoPath: widget.videoPath,
+            child: RepaintBoundary(
+              key: _screenshotKey,
+              child: VideoPlayerWidget(
+                videoTitle: widget.videoTitle,
+                videoPath: widget.videoPath,
+              ),
             ),
           ),
         );
