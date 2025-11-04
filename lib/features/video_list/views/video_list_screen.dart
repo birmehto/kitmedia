@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../../core/theme/ui_constants.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/common/empty_state.dart';
 import '../../../core/widgets/common/loading_indicator.dart';
+import '../../../core/widgets/common/unified_video_card.dart';
 import '../../../routes/app_routes.dart';
 import '../controllers/video_controller.dart';
 import '../models/video_file.dart';
-import '../widgets/unified_video_card.dart';
+import '../widgets/search_dialog.dart';
+import '../widgets/video_details_dialog.dart';
+import '../widgets/video_options_sheet.dart';
 
 class VideoListScreen extends StatelessWidget {
   const VideoListScreen({super.key});
@@ -42,14 +47,14 @@ class VideoListScreen extends StatelessWidget {
           Hero(
             tag: 'app_icon',
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(UIConstants.spacingMedium),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: UIConstants.borderRadiusLargeAll,
                 boxShadow: [
                   BoxShadow(
                     color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                    blurRadius: 8,
+                    blurRadius: UIConstants.elevationHigh,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -62,7 +67,7 @@ class VideoListScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: UIConstants.spacingLarge),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,13 +108,13 @@ class VideoListScreen extends StatelessWidget {
             tooltip: 'search_videos'.tr,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: UIConstants.spacingSmall),
         IconButton.outlined(
           icon: const Icon(Symbols.settings_rounded),
           onPressed: () => Get.toNamed(AppRoutes.settings),
           tooltip: 'Settings',
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: UIConstants.spacingSmall),
       ],
     );
   }
@@ -139,7 +144,12 @@ class VideoListScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      margin: const EdgeInsets.fromLTRB(
+        UIConstants.spacingXLarge,
+        UIConstants.spacingMedium,
+        UIConstants.spacingXLarge,
+        UIConstants.spacingSmall,
+      ),
       child: SearchBar(
         hintText: 'search_videos'.tr,
         leading: Icon(
@@ -154,8 +164,10 @@ class VideoListScreen extends StatelessWidget {
           ),
         ],
         elevation: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.focused)) return 6;
-          return 3;
+          if (states.contains(WidgetState.focused)) {
+            return UIConstants.elevationHigh;
+          }
+          return UIConstants.elevationMedium;
         }),
         shadowColor: WidgetStateProperty.all(
           theme.colorScheme.shadow.withValues(alpha: 0.15),
@@ -164,7 +176,11 @@ class VideoListScreen extends StatelessWidget {
           theme.colorScheme.surfaceTint,
         ),
         shape: WidgetStateProperty.all(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(
+              UIConstants.borderRadiusXXLarge,
+            ),
+          ),
         ),
         onChanged: _controller.updateSearchQuery,
       ),
@@ -175,7 +191,7 @@ class VideoListScreen extends StatelessWidget {
     return Obx(
       () => AnimatedScale(
         scale: _controller.isLoading ? 0.0 : 1.0,
-        duration: const Duration(milliseconds: 300),
+        duration: UIConstants.animationMedium,
         curve: Curves.elasticOut,
         child: FloatingActionButton.extended(
           onPressed: _controller.refresh,
@@ -185,8 +201,8 @@ class VideoListScreen extends StatelessWidget {
             fill: _controller.isLoading ? 1 : 0,
           ),
           label: const Text('Refresh'),
-          elevation: 6,
-          highlightElevation: 12,
+          elevation: UIConstants.elevationHigh,
+          highlightElevation: UIConstants.elevationHigh * 2,
         ),
       ),
     );
@@ -206,15 +222,55 @@ class VideoListScreen extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 120),
-      itemCount: videos.length,
-      itemBuilder: (context, index) {
-        final video = videos[index];
-        return UnifiedVideoCard(
-          video: video,
-          onTap: () => _playVideo(video),
-          onLongPress: () => _showVideoOptions(context, video),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isGridView =
+            Responsive.isTablet(context) || Responsive.isDesktop(context);
+
+        if (isGridView) {
+          return GridView.builder(
+            padding: Responsive.getPadding(
+              context,
+            ).copyWith(bottom: 120, top: UIConstants.spacingSmall),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: Responsive.getGridCount(
+                context,
+                tablet: 2,
+                desktop: 3,
+              ),
+              childAspectRatio: 1.2,
+              crossAxisSpacing: UIConstants.spacingMedium,
+              mainAxisSpacing: UIConstants.spacingMedium,
+            ),
+            itemCount: videos.length,
+            itemBuilder: (context, index) {
+              final video = videos[index];
+              return UnifiedVideoCard(
+                video: video,
+                onTap: () => _playVideo(video),
+                onLongPress: () => _showVideoOptions(context, video),
+                layout: VideoCardLayout.grid,
+              );
+            },
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(
+            0,
+            UIConstants.spacingSmall,
+            0,
+            120,
+          ),
+          itemCount: videos.length,
+          itemBuilder: (context, index) {
+            final video = videos[index];
+            return UnifiedVideoCard(
+              video: video,
+              onTap: () => _playVideo(video),
+              onLongPress: () => _showVideoOptions(context, video),
+            );
+          },
         );
       },
     );
@@ -244,7 +300,7 @@ class VideoListScreen extends StatelessWidget {
   void _showSearchDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => _SearchDialog(controller: _controller),
+      builder: (context) => SearchDialog(controller: _controller),
     );
   }
 
@@ -253,10 +309,16 @@ class VideoListScreen extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => _VideoOptionsSheet(
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(UIConstants.borderRadiusXXLarge),
+        ),
+      ),
+      builder: (context) => VideoOptionsSheet(
         video: video,
         onPlay: () => _playVideo(video),
         onShowDetails: () => _showVideoDetails(context, video),
+        onDelete: () => _deleteVideo(video),
       ),
     );
   }
@@ -264,7 +326,7 @@ class VideoListScreen extends StatelessWidget {
   void _showVideoDetails(BuildContext context, VideoFile video) {
     showDialog(
       context: context,
-      builder: (context) => _VideoDetailsDialog(video: video),
+      builder: (context) => VideoDetailsDialog(video: video),
     );
   }
 
@@ -274,270 +336,8 @@ class VideoListScreen extends StatelessWidget {
       videoTitle: video.name,
     );
   }
-}
 
-// Separate stateless widgets for better performance and reusability
-class _SearchDialog extends StatelessWidget {
-  const _SearchDialog({required this.controller});
-
-  final VideoController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final searchController = TextEditingController(
-      text: controller.searchQuery,
-    );
-
-    return AlertDialog(
-      icon: Icon(
-        Symbols.search_rounded,
-        size: 32,
-        color: theme.colorScheme.primary,
-      ),
-      title: Text(
-        'search_videos'.tr,
-        style: theme.textTheme.headlineSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      content: TextField(
-        controller: searchController,
-        autofocus: true,
-        decoration: InputDecoration(
-          hintText: 'Enter video name or path...',
-          prefixIcon: Icon(
-            Symbols.search_rounded,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          filled: true,
-          fillColor: theme.colorScheme.surfaceContainerHighest,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
-          ),
-        ),
-        onChanged: controller.updateSearchQuery,
-      ),
-      actions: [
-        TextButton.icon(
-          onPressed: () {
-            controller.clearSearch();
-            Navigator.pop(context);
-          },
-          icon: const Icon(Symbols.clear_rounded),
-          label: const Text('Clear'),
-        ),
-        FilledButton.icon(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Symbols.check_rounded),
-          label: const Text('Done'),
-        ),
-      ],
-    );
-  }
-}
-
-class _VideoOptionsSheet extends StatelessWidget {
-  const _VideoOptionsSheet({
-    required this.video,
-    required this.onPlay,
-    required this.onShowDetails,
-  });
-
-  final VideoFile video;
-  final VoidCallback onPlay;
-  final VoidCallback onShowDetails;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(0, 16, 0, 32),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Symbols.video_file_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    video.name,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          _OptionTile(
-            icon: Symbols.play_circle_rounded,
-            iconColor: theme.colorScheme.primary,
-            title: 'video_player'.tr,
-            subtitle: 'Start playback',
-            onTap: () {
-              Navigator.pop(context);
-              onPlay();
-            },
-          ),
-          _OptionTile(
-            icon: Symbols.info_rounded,
-            iconColor: theme.colorScheme.secondary,
-            title: 'Video Details',
-            subtitle: 'View file information',
-            onTap: () {
-              Navigator.pop(context);
-              onShowDetails();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OptionTile extends StatelessWidget {
-  const _OptionTile({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: iconColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: iconColor, size: 24),
-        ),
-        title: Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        trailing: Icon(
-          Symbols.arrow_forward_ios_rounded,
-          size: 16,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onTap: onTap,
-      ),
-    );
-  }
-}
-
-class _VideoDetailsDialog extends StatelessWidget {
-  const _VideoDetailsDialog({required this.video});
-
-  final VideoFile video;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        video.name,
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _DetailRow(label: 'Path', value: video.path),
-          _DetailRow(label: 'Size', value: video.sizeString),
-          _DetailRow(label: 'Modified', value: video.lastModified.toString()),
-          if (video.duration != null)
-            _DetailRow(label: 'Duration', value: video.durationString),
-        ],
-      ),
-      actions: [
-        FilledButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
-      ],
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  void _deleteVideo(VideoFile video) {
+    _controller.deleteVideo(video);
   }
 }

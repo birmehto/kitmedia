@@ -11,16 +11,29 @@ class VideoFile {
     required this.lastModified,
     this.thumbnail,
     this.duration,
+    this.folderName,
+    this.folderPath,
   });
 
   factory VideoFile.fromFile(File file) {
     final stat = file.statSync();
+    final pathParts = file.path.split(Platform.pathSeparator);
+    final fileName = pathParts.last;
+    final folderPath = pathParts
+        .sublist(0, pathParts.length - 1)
+        .join(Platform.pathSeparator);
+    final folderName = pathParts.length > 1
+        ? pathParts[pathParts.length - 2]
+        : 'Root';
+
     return VideoFile(
       id: file.path.hashCode.toString(),
-      name: file.path.split(Platform.pathSeparator).last,
+      name: fileName,
       path: file.path,
       size: stat.size,
       lastModified: stat.modified,
+      folderName: folderName,
+      folderPath: folderPath,
     );
   }
   final String id;
@@ -30,6 +43,8 @@ class VideoFile {
   final DateTime lastModified;
   final String? thumbnail;
   final Duration? duration;
+  final String? folderName;
+  final String? folderPath;
 
   String get sizeString {
     if (size < 1024) return '${size}B';
@@ -66,6 +81,8 @@ class VideoFile {
     DateTime? lastModified,
     String? thumbnail,
     Duration? duration,
+    String? folderName,
+    String? folderPath,
   }) {
     return VideoFile(
       id: id ?? this.id,
@@ -75,6 +92,8 @@ class VideoFile {
       lastModified: lastModified ?? this.lastModified,
       thumbnail: thumbnail ?? this.thumbnail,
       duration: duration ?? this.duration,
+      folderName: folderName ?? this.folderName,
+      folderPath: folderPath ?? this.folderPath,
     );
   }
 

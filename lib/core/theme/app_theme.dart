@@ -11,15 +11,17 @@ class AppTheme {
   static const _surfaceVariant = Color(0xFFE7E0EC);
   static const _outline = Color(0xFF79747E);
 
-  static ThemeData get lightTheme {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: _primaryColor,
-      secondary: _secondaryColor,
-      tertiary: _tertiaryColor,
-      error: _errorColor,
-      surfaceContainerHighest: _surfaceVariant,
-      outline: _outline,
-    );
+  static ThemeData buildLightTheme(ColorScheme? dynamicColorScheme) {
+    final colorScheme =
+        dynamicColorScheme ??
+        ColorScheme.fromSeed(
+          seedColor: _primaryColor,
+          secondary: _secondaryColor,
+          tertiary: _tertiaryColor,
+          error: _errorColor,
+          surfaceContainerHighest: _surfaceVariant,
+          outline: _outline,
+        );
 
     return ThemeData(
       useMaterial3: true,
@@ -154,14 +156,19 @@ class AppTheme {
     );
   }
 
-  static ThemeData get darkTheme {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: _primaryColor,
-      secondary: _secondaryColor,
-      tertiary: _tertiaryColor,
-      error: _errorColor,
-      brightness: Brightness.dark,
-    );
+  static ThemeData get lightTheme => buildLightTheme(null);
+  static ThemeData get darkTheme => buildDarkTheme(null);
+
+  static ThemeData buildDarkTheme(ColorScheme? dynamicColorScheme) {
+    final colorScheme =
+        dynamicColorScheme ??
+        ColorScheme.fromSeed(
+          seedColor: _primaryColor,
+          secondary: _secondaryColor,
+          tertiary: _tertiaryColor,
+          error: _errorColor,
+          brightness: Brightness.dark,
+        );
 
     return ThemeData(
       useMaterial3: true,

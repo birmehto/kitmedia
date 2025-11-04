@@ -23,10 +23,17 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Device Information:**
- - Device: [e.g. iPhone 12, Samsung Galaxy S21]
- - OS: [e.g. iOS 15.0, Android 12]
- - App Version: [e.g. 1.0.0]
+ - Device: [e.g. Samsung Galaxy S21, Pixel 6, OnePlus 9]
+ - OS: [e.g. Android 12, Android 13]
+ - App Version: [e.g. 1.0.0] (found in Settings > About)
  - Flutter Version: [e.g. 3.9.2]
+ - Installation Source: [e.g. Google Play Store, GitHub Release, F-Droid]
+
+**Video Information (if applicable):**
+ - Video format: [e.g. MP4, AVI, MKV]
+ - Video resolution: [e.g. 1080p, 4K]
+ - Video codec: [e.g. H.264, H.265]
+ - File size: [e.g. 2GB]
 
 **Additional context**
 Add any other context about the problem here.
