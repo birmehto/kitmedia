@@ -132,10 +132,7 @@ class UnifiedVideoCard extends StatelessWidget {
                 _buildTitle(theme),
                 if (showMetadata) ...[
                   const Spacer(),
-                  VideoMetadataRow(
-                    size: video.sizeString,
-                    isCompact: true,
-                  ),
+                  VideoMetadataRow(size: video.sizeString, isCompact: true),
                 ],
               ],
             ),
