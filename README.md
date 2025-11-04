@@ -1,85 +1,86 @@
-# 🎬 KitMedia Player
-
-<!-- > A beautiful, modern video player for Android and iOS built with Flutter
-
-KitMedia Player is a sleek video player app that automatically discovers and organizes all your videos with a clean, Material 3 interface. Built for performance and user experience.
-
-## ✨ What makes it special
-
-🎥 **Smart Video Discovery** - Automatically finds all videos on your device  
-🎨 **Beautiful Interface** - Modern Material 3 design with dark/light themes  
-📱 **Responsive Design** - Works perfectly on phones, tablets, and foldables  
-🔍 **Instant Search** - Find your videos quickly with real-time search  
-🎛️ **Custom Controls** - Intuitive video player with gesture support  
-🌍 **Multi-language Ready** - Built for international users
-
-## Screenshots
-
 <div align="center">
 
-### Video Library
-<img src="screenshots/video_list_light.png" width="250" alt="Video List Light Mode"> <img src="screenshots/video_list_dark.png" width="250" alt="Video List Dark Mode">
+# 🎬 KitMedia Player
 
-*Modern video library with grid layout and search functionality*
+**A modern, cross-platform video player built with Flutter**
 
-### Video Player
-<img src="screenshots/video_player.png" width="250" alt="Video Player"> <img src="screenshots/video_controls.png" width="250" alt="Video Controls">
-
-*Custom video player with intuitive controls and overlay*
-
-### Settings & Themes
-<img src="screenshots/settings_screen.png" width="250" alt="Settings Screen"> <img src="screenshots/theme_selection.png" width="250" alt="Theme Selection">
-
-*Comprehensive settings with theme and language options*
-
-### Responsive Design
-<img src="screenshots/tablet_view.png" width="400" alt="Tablet View">
-
-*Adaptive layout for tablets and larger screens*
+[![Flutter](https://img.shields.io/badge/Flutter-3.9.2+-02569B?logo=flutter)](https://flutter.dev)
+[![Dart](https://img.shields.io/badge/Dart-3.0+-0175C2?logo=dart)](https://dart.dev)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-lightgrey)](https://github.com/Birmehto/kitmedia)
 
 </div>
 
-> **Note**: Screenshots will be added once the app UI is finalized. The above paths are placeholders for future screenshot assets.
+## 📱 Screenshots
 
-## 🛠️ Built With
+<div align="center">
+<img src="screenshots/home.png" width="250" alt="Video Library"> 
+<img src="screenshots/player.png" width="250" alt="Video Player"> 
+<img src="screenshots/settings.png" width="250" alt="Settings">
 
-- **Flutter** - Cross-platform mobile framework
-- **GetX** - State management and dependency injection
-- **Material 3** - Modern design system
-- **Video Player** - Native video playback
-- **Chewie** - Enhanced video controls
+*Video Library • Custom Player • Settings Panel*
+</div>
+
+## ✨ Key Features
+
+- **🎥 Smart Discovery** - Automatically scans and organizes device videos
+- **🎨 Material 3 Design** - Beautiful dark/light themes with adaptive colors  
+- **🔍 Instant Search** - Real-time video search with filters
+- **🎛️ Advanced Controls** - Gesture support, playback speed, quality selection
+- **📱 Responsive UI** - Optimized for phones, tablets, and foldables
+- **🌍 Internationalization** - Multi-language support ready
 
 ## 🚀 Quick Start
 
+### Prerequisites
+- Flutter 3.9.2+ and Dart 3.0+
+- Android Studio or VS Code with Flutter extensions
+
+### Installation
 ```bash
-# Clone the repository
+# Clone and setup
 git clone https://github.com/Birmehto/kitmedia.git
 cd kitmedia
-
-# Install dependencies
 flutter pub get
 
-# Run the app
+# Run on device
 flutter run
 ```
 
-**Requirements:** Flutter 3.9.2+ • Dart 3.0+
+## 🛠️ Technology Stack
+
+| Component | Technology |
+|-----------|------------|
+| **Framework** | Flutter 3.9.2+ |
+| **Language** | Dart 3.0+ |
+| **State Management** | GetX |
+| **UI Design** | Material 3 |
+| **Video Engine** | video_player + Chewie |
 
 ## 📋 Supported Formats
 
-MP4 • AVI • MKV • MOV • WMV • FLV • WebM • M4V • 3GP • TS • MTS
+**Video:** MP4, AVI, MKV, MOV, WMV, WebM, FLV, 3GP, M4V  
+**Codecs:** H.264, H.265/HEVC, VP8, VP9, AV1
 
 ## 🎯 Roadmap
 
-- [ ] Playlist management
-- [ ] Subtitle support  
+- [x] Core video playback and discovery
+- [ ] Playlist management and favorites
+- [ ] Subtitle support (SRT, VTT)
 - [ ] Chromecast integration
-- [ ] Advanced search filters
-- [ ] Additional languages
+- [ ] Picture-in-picture mode
+
+## 📱 Platform Support
+
+| Platform | Status | Minimum Version |
+|----------|--------|-----------------|
+| Android | ✅ Stable | API 21 (5.0+) |
+| iOS | ✅ Stable | iOS 12.0+ |
+| Web | 🔄 In Development | - |
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
 ## 📄 License
 
@@ -88,5 +89,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <div align="center">
-  <strong>Made with ❤️ using Flutter</strong>
-</div> -->
+
+**⭐ If you find this project helpful, please give it a star!**
+
+Made with ❤️ by [Birmehto](https://github.com/Birmehto)
+
+</div>

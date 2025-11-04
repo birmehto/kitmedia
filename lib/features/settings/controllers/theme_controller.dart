@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../core/services/storage_service.dart';
+import '../../../core/storage/local_storage.dart';
 
 class ThemeController extends GetxController {
-  static const String _themeKey = 'theme_mode';
-  static const String _dynamicColorKey = 'dynamic_color_enabled';
-
   final Rx<ThemeMode> _themeMode = ThemeMode.system.obs;
   final RxBool _isDynamicColorEnabled = true.obs;
 
@@ -30,27 +29,58 @@ class ThemeController extends GetxController {
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    final themeIndex = prefs.getInt(_themeKey) ?? ThemeMode.system.index;
-    final dynamicColorEnabled = prefs.getBool(_dynamicColorKey) ?? true;
+    final storage = StorageService.to;
+    final themeModeString =
+        storage.getUserPreference<String>(StorageKeys.themeMode) ?? 'system';
+    final dynamicColorEnabled =
+        storage.getUserPreference<bool>(StorageKeys.dynamicColors) ?? true;
 
-    _themeMode.value = ThemeMode.values[themeIndex];
+    // Convert string to ThemeMode
+    switch (themeModeString) {
+      case 'light':
+        _themeMode.value = ThemeMode.light;
+        break;
+      case 'dark':
+        _themeMode.value = ThemeMode.dark;
+        break;
+      default:
+        _themeMode.value = ThemeMode.system;
+        break;
+    }
+
     _isDynamicColorEnabled.value = dynamicColorEnabled;
-
     update(); // Notify GetBuilder widgets
   }
 
   Future<void> setTheme(ThemeMode themeMode) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_themeKey, themeMode.index);
+    // Convert ThemeMode to string
+    String themeModeString;
+    switch (themeMode) {
+      case ThemeMode.light:
+        themeModeString = 'light';
+        break;
+      case ThemeMode.dark:
+        themeModeString = 'dark';
+        break;
+      case ThemeMode.system:
+        themeModeString = 'system';
+        break;
+    }
+
+    await StorageService.to.saveUserPreference(
+      StorageKeys.themeMode,
+      themeModeString,
+    );
     _themeMode.value = themeMode;
     Get.changeThemeMode(themeMode);
     update(); // Notify GetBuilder widgets
   }
 
   Future<void> setDynamicColorEnabled(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_dynamicColorKey, enabled);
+    await StorageService.to.saveUserPreference(
+      StorageKeys.dynamicColors,
+      enabled,
+    );
     _isDynamicColorEnabled.value = enabled;
     update(); // Notify GetBuilder widgets
 

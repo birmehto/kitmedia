@@ -199,7 +199,7 @@ class VideoScanner {
 
             if (_videoExts.contains(ext) || _isVideoMime(path)) {
               try {
-                final stat = await entity.stat();
+                final stat = entity.statSync();
                 if (stat.size > 0) {
                   videos.add(
                     VideoFile(
@@ -211,11 +211,15 @@ class VideoScanner {
                     ),
                   );
                 }
-              } catch (_) {}
+              } catch (e) {
+                appLog('Error=> ${e.toString()}');
+              }
             }
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        appLog('Error=> ${e.toString()}');
+      }
     }
 
     await walk(rootDir);

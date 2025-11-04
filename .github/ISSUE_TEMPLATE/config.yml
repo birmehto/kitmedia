@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/kitmedia/kitmedia/wiki
+    about: Check our documentation and FAQ before creating an issue
+  - name: 💬 Discussions
+    url: https://github.com/kitmedia/kitmedia/discussions
+    about: Ask questions and discuss features with the community
+  - name: 🔒 Security Issues
+    url: mailto:security@kitmedia.app
+    about: Report security vulnerabilities privately via email

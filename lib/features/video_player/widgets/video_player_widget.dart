@@ -1,6 +1,5 @@
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -41,7 +40,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       onPanStart: (details) => _onPanStart(details, screenSize, controller),
       onPanUpdate: (details) => _onPanUpdate(details, controller),
       onPanEnd: (details) => _onPanEnd(details, controller),
-      child: Container(
+      child: ColoredBox(
         color: Colors.black,
         child: Stack(
           alignment: Alignment.center,
@@ -188,7 +187,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
     _gestureCurrentY = details.globalPosition.dy;
     final deltaY = _gestureStartY - _gestureCurrentY;
-    final sensitivity = 300.0; // Adjust sensitivity
+    const sensitivity = 300.0; // Adjust sensitivity
 
     if (_isBrightnessGesture && _initialBrightness != null) {
       final newBrightness = (_initialBrightness! + (deltaY / sensitivity))
@@ -220,7 +219,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       bottom: 0,
       left: 0,
       right: 0,
-      child: Container(
+      child: ColoredBox(
         color: Colors.black26,
         child: Center(
           child: Container(
@@ -453,7 +452,6 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
                       _buildControlButton(
                         icon: Symbols.skip_previous_rounded,
                         onPressed: controller.previousVideo,
-                        size: 24,
                       ),
                       _buildControlButton(
                         icon: controller.isPlaying.value
@@ -465,17 +463,14 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
                       _buildControlButton(
                         icon: Symbols.skip_next_rounded,
                         onPressed: controller.nextVideo,
-                        size: 24,
                       ),
                       _buildControlButton(
                         icon: Symbols.playlist_play_rounded,
                         onPressed: () => _showPlaylist(context),
-                        size: 24,
                       ),
                       _buildControlButton(
                         icon: Symbols.screenshot_rounded,
                         onPressed: controller.takeScreenshot,
-                        size: 24,
                       ),
                       Obx(
                         () => _buildControlButton(
@@ -483,7 +478,6 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
                               ? Symbols.fullscreen_exit_rounded
                               : Symbols.fullscreen_rounded,
                           onPressed: controller.toggleFullscreen,
-                          size: 24,
                         ),
                       ),
                     ],

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:better_player_plus/better_player_plus.dart';
@@ -10,9 +9,11 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness/screen_brightness.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:volume_controller/volume_controller.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+
+import '../../../core/services/storage_service.dart';
+import '../../../core/utils/logger.dart';
 
 class VideoPlayerController extends GetxController {
   BetterPlayerController? _controller;
@@ -338,7 +339,7 @@ class VideoPlayerController extends GetxController {
       final directory = await getApplicationDocumentsDirectory();
       final screenshotsDir = Directory('${directory.path}/screenshots');
 
-      if (!await screenshotsDir.exists()) {
+      if (!screenshotsDir.existsSync()) {
         await screenshotsDir.create(recursive: true);
       }
 
@@ -354,16 +355,22 @@ class VideoPlayerController extends GetxController {
   Future<void> _savePosition(String path) async {
     try {
       if (position.value > Duration.zero) {
-        final prefs = await SharedPreferences.getInstance();
-        prefs.setInt('pos_${path.hashCode}', position.value.inMilliseconds);
+        await StorageService.to.saveCacheData(
+          'video_position_${path.hashCode}',
+          position.value.inMilliseconds,
+          const Duration(days: 30), // Cache for 30 days
+        );
       }
-    } catch (_) {}
+    } catch (e) {
+      appLog('Error=> ${e.toString()}');
+    }
   }
 
   Future<Duration?> _loadSavedPosition(String path) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final ms = prefs.getInt('pos_${path.hashCode}');
+      final ms = StorageService.to.getCacheData<int>(
+        'video_position_${path.hashCode}',
+      );
       return ms != null ? Duration(milliseconds: ms) : null;
     } catch (_) {
       return null;
@@ -402,13 +409,17 @@ class VideoPlayerController extends GetxController {
   Future<void> _enableWakelock() async {
     try {
       await WakelockPlus.enable();
-    } catch (_) {}
+    } catch (e) {
+      appLog('Error=> ${e.toString()}');
+    }
   }
 
   Future<void> _disableWakelock() async {
     try {
       await WakelockPlus.disable();
-    } catch (_) {}
+    } catch (e) {
+      appLog('Error=> ${e.toString()}');
+    }
   }
 
   void _resetSystemUi() {

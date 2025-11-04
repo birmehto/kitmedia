@@ -155,14 +155,14 @@ class VideoPlayerUtils {
   }
 
   // Validate video file
-  static Future<bool> validateVideoFile(String filePath) async {
+  static bool validateVideoFile(String filePath) {
     try {
       final file = File(filePath);
-      if (!await file.exists()) return false;
+      if (!file.existsSync()) return false;
       if (!isVideoFile(filePath)) return false;
 
       // Check if file is readable
-      final stat = await file.stat();
+      final stat = file.statSync();
       return stat.size > 0;
     } catch (e) {
       return false;
@@ -181,14 +181,12 @@ class VideoPlayerUtils {
   }
 
   // Generate playlist from directory
-  static Future<List<String>> generatePlaylistFromDirectory(
-    String directoryPath,
-  ) async {
+  static List<String> generatePlaylistFromDirectory(String directoryPath) {
     try {
       final directory = Directory(directoryPath);
-      if (!await directory.exists()) return [];
+      if (!directory.existsSync()) return [];
 
-      final files = await directory.list().toList();
+      final files = directory.listSync();
       final videoFiles = files
           .whereType<File>()
           .where((file) => isVideoFile(file.path))
@@ -210,7 +208,7 @@ class VideoPlayerUtils {
       final dir = path.dirname(videoPath);
       final thumbnailDir = Directory(path.join(dir, '.thumbnails'));
 
-      if (!await thumbnailDir.exists()) {
+      if (!thumbnailDir.existsSync()) {
         await thumbnailDir.create(recursive: true);
       }
     } catch (e) {

@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.9.2'
+        channel: 'stable'
+    
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Build APK
+      run: flutter build apk --release
+    
+    - name: Build App Bundle
+      run: flutter build appbundle --release
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: KitMedia ${{ github.ref }}
+        draft: false
+        prerelease: false
+        body: |
+          ## What's New
+          
+          ### Features
+          - Add your new features here
+          
+          ### Bug Fixes
+          - Add your bug fixes here
+          
+          ### Improvements
+          - Add your improvements here
+          
+          ## Download
+          
+          - **APK**: Download the APK file below for direct installation
+          - **Google Play**: Available on Google Play Store (coming soon)
+          
+          ## Supported Devices
+          - Android 7.0 (API level 24) and above
+          - ARM64 and ARM32 architectures
+    
+    - name: Upload APK
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: build/app/outputs/flutter-apk/app-release.apk
+        asset_name: KitMedia-${{ github.ref_name }}.apk
+        asset_content_type: application/vnd.android.package-archive
+    
+    - name: Upload App Bundle
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: build/app/outputs/bundle/release/app-release.aab
+        asset_name: KitMedia-${{ github.ref_name }}.aab
+        asset_content_type: application/octet-stream

@@ -72,7 +72,7 @@ class VideoController extends BaseController {
   Future<List<VideoFile>> _validateVideos(List<VideoFile> videos) async {
     final valid = <VideoFile>[];
     for (final v in videos) {
-      if (await File(v.path).exists()) valid.add(v);
+      if (File(v.path).existsSync()) valid.add(v);
     }
     return valid;
   }

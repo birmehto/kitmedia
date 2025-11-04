@@ -158,6 +158,7 @@ class VideoQualityWidget extends StatelessWidget {
   }
 }
 
+@immutable
 class VideoQuality {
   const VideoQuality({
     required this.resolution,
