@@ -14,11 +14,7 @@
 ## 📱 Screenshots
 
 <div align="center">
-<img src="screenshots/home.png" width="250" alt="Video Library"> 
-<img src="screenshots/player.png" width="250" alt="Video Player"> 
-<img src="screenshots/settings.png" width="250" alt="Settings">
-
-*Video Library • Custom Player • Settings Panel*
+<img src="screenshots/home.png" width="200" alt="Library"> <img src="screenshots/player.png" width="200" alt="Player"> <img src="screenshots/settings.png" width="200" alt="Settings">
 </div>
 
 ## ✨ Key Features
