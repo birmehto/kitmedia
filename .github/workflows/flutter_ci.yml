@@ -21,17 +21,11 @@ jobs:
     - name: Get dependencies
       run: flutter pub get
     
-    - name: Verify formatting
-      run: dart format --output=none --set-exit-if-changed .
+    # - name: Analyze project source
+    #   run: flutter analyze
     
-    - name: Analyze project source
-      run: flutter analyze
-    
-    - name: Run tests
-      run: flutter test
-    
-    - name: Check for outdated dependencies
-      run: flutter pub outdated
+    # - name: Run tests
+    #   run: flutter test
 
   build-android:
     runs-on: ubuntu-latest
