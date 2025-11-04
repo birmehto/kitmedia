@@ -1,63 +1,38 @@
 # Flutter Project Scripts
 
-This directory contains useful bash scripts to streamline your Flutter development workflow.
+Essential scripts for Flutter development workflow.
 
 ## Available Scripts
 
-### 🚀 Development Scripts
+- **`run_dev.sh`** - Start development server with hot reload
+- **`flutter_clean_build.sh`** - Clean and rebuild project
+- **`build_release.sh`** - Build production APK and AAB
+- **`code_quality.sh`** - Run formatting and analysis
+- **`version_upgrade.sh`** - Increment version and create git tag
 
-- **`dev_setup.sh`** - Sets up the development environment and checks dependencies
-- **`run_dev.sh`** - Starts Flutter in development mode with hot reload
-- **`flutter_clean_build.sh`** - Performs a complete clean and rebuild
-
-### 🧪 Testing Scripts
-
-- **`test_runner.sh`** - Runs tests with various options
-  - `--coverage` - Generate test coverage report
-  - `--integration` - Run integration tests
-  - `--unit-only` - Run only unit tests
-
-### 🏗️ Build Scripts
-
-- **`build_release.sh`** - Builds production-ready APK and iOS app
-- **`code_quality.sh`** - Runs linting, formatting, and code analysis
-
-### 🛠️ Utility Scripts
-
-- **`backup_project.sh`** - Creates a backup excluding build files
-- **`git_hooks_setup.sh`** - Sets up useful git hooks for quality control
-
-## Usage Examples
+## Usage
 
 ```bash
-# Set up development environment
-./scripts/dev_setup.sh
-
-# Start development server
+# Start development
 ./scripts/run_dev.sh
 
-# Run tests with coverage
-./scripts/test_runner.sh --coverage
+# Clean build
+./scripts/flutter_clean_build.sh
 
-# Build release version
+# Build release
 ./scripts/build_release.sh
 
 # Check code quality
 ./scripts/code_quality.sh
 
-# Create project backup
-./scripts/backup_project.sh
+# Upgrade version (patch by default)
+./scripts/version_upgrade.sh
 
-# Set up git hooks
-./scripts/git_hooks_setup.sh
+# Upgrade minor version
+./scripts/version_upgrade.sh minor
+
+# Upgrade major version
+./scripts/version_upgrade.sh major
 ```
 
-## Requirements
-
-- Flutter SDK
-- Bash shell
-- Git (for git hooks)
-- Optional: `jq` for JSON parsing in some scripts
-- Optional: `lcov` for HTML coverage reports
-
-All scripts are designed to be run from the project root directory.
+Run from project root directory.
