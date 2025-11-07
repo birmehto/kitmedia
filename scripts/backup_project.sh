@@ -52,6 +52,7 @@ echo "✅ Backup created: $BACKUP_DIR/${BACKUP_NAME}.tar.gz"
 
 # Keep only last 5 backups
 cd "$PWD/$BACKUP_DIR"
-ls -t ${PROJECT_NAME}_backup_*.tar.gz | tail -n +6 | xargs -r rm
+# shellcheck disable=SC2012
+ls -t "${PROJECT_NAME}"_backup_*.tar.gz | tail -n +6 | xargs -r rm
 
 echo "🧹 Old backups cleaned up (keeping last 5)"

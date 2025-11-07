@@ -7,14 +7,14 @@
 [![Flutter](https://img.shields.io/badge/Flutter-3.9.2+-02569B?logo=flutter)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.0+-0175C2?logo=dart)](https://dart.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-lightgrey)](https://github.com/Birmehto/kitmedia)
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-lightgrey)](https://github.com/birmehto/kitmedia)
 
 </div>
 
 ## 📱 Screenshots
 
 <div align="center">
-<img src="screenshots/home.png" width="200" alt="Library"> <img src="screenshots/player.png" width="200" alt="Player"> <img src="screenshots/settings.png" width="200" alt="Settings">
+<img src="screenshots/home.png" width="1080" alt="Library"> <img src="screenshots/player.png" width="1080" alt="Player"> <img src="screenshots/settings.png" width="200" alt="Settings">
 </div>
 
 ## ✨ Key Features
@@ -35,7 +35,7 @@
 ### Installation
 ```bash
 # Clone and setup
-git clone https://github.com/Birmehto/kitmedia.git
+git clone https://github.com/birmehto/kitmedia.git
 cd kitmedia
 flutter pub get
 
@@ -45,13 +45,13 @@ flutter run
 
 ## 🛠️ Technology Stack
 
-| Component | Technology |
-|-----------|------------|
-| **Framework** | Flutter 3.9.2+ |
-| **Language** | Dart 3.0+ |
-| **State Management** | GetX |
-| **UI Design** | Material 3 |
-| **Video Engine** | video_player + Chewie |
+| Component            | Technology            |
+|----------------------|-----------------------|
+| **Framework**        | Flutter 3.9.2+        |
+| **Language**         | Dart 3.0+             |
+| **State Management** | GetX                  |
+| **UI Design**        | Material 3            |
+| **Video Engine**     | video_player + Chewie |
 
 ## 📋 Supported Formats
 
@@ -68,11 +68,11 @@ flutter run
 
 ## 📱 Platform Support
 
-| Platform | Status | Minimum Version |
-|----------|--------|-----------------|
-| Android | ✅ Stable | API 21 (5.0+) |
-| iOS | ✅ Stable | iOS 12.0+ |
-| Web | 🔄 In Development | - |
+| Platform | Status            | Minimum Version |
+|----------|-------------------|-----------------|
+| Android  | ✅ Stable          | API 21 (5.0+)   |
+| iOS      | ✅ Stable          | iOS 12.0+       |
+| Web      | 🔄 In Development | -               |
 
 ## 🤝 Contributing
 
@@ -88,6 +88,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **⭐ If you find this project helpful, please give it a star!**
 
-Made with ❤️ by [Birmehto](https://github.com/Birmehto)
+Made with ❤️ by [birmehto](https://github.com/Birmehto)
 
 </div>

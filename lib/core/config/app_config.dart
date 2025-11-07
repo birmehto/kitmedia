@@ -1,10 +1,7 @@
 class AppConfig {
   // GitHub Repository Configuration
-  static const String githubRepoOwner =
-      'your-username'; // Replace with your GitHub username
-  static const String githubRepoName =
-      'kitmedia'; // Replace with your repository name
-
+  static const String githubRepoOwner = 'birmehto';
+  static const String githubRepoName = 'kitmedia';
   // Update Configuration
   static const bool enableAutoUpdateCheck = true;
   static const Duration updateCheckInterval = Duration(hours: 24);
@@ -12,8 +9,6 @@ class AppConfig {
   // App Information
   static const String appName = 'KitMedia';
   static const String appDescription = 'A Flutter media player application';
-  static const String appVersion =
-      '0.1.0'; // This will be overridden by package_info_plus
   static const int buildNumber =
       1; // This will be overridden by package_info_plus
 

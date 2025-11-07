@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 
 import '../platform/android_platform.dart';
 import '../storage/local_storage.dart';
+import '../utils/logger.dart';
 
 /// Comprehensive storage service that manages both local storage and platform-specific storage
 class StorageService extends GetxService {
@@ -293,10 +294,8 @@ class StorageService extends GetxService {
     await LocalStorage.clearAll();
     await updateStorageStats();
 
-    Get.snackbar(
-      'Data Cleared',
+    appLog(
       'All app data has been cleared',
-      snackPosition: SnackPosition.BOTTOM,
     );
   }
 

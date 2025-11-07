@@ -128,6 +128,29 @@ class VideoController extends BaseController {
     appLog('✅ Stale file cleanup complete.');
   }
 
+  /// Play video from external path (e.g., from intent)
+  Future<void> playVideoFromPath(String videoPath) async {
+    appLog('🎬 Playing video from path: $videoPath');
+
+    // Check if file exists
+    if (!File(videoPath).existsSync()) {
+      appLog('Video file not found');
+      return;
+    }
+
+    // Check if video is already in the list
+    final existingVideo = _videos.firstWhereOrNull((v) => v.path == videoPath);
+
+    if (existingVideo != null) {
+      // Video is in list, navigate to player
+      Get.toNamed('/video-player', arguments: existingVideo);
+    } else {
+      // Create a temporary VideoFile object
+      final videoFile = VideoFile.fromFile(File(videoPath));
+      Get.toNamed('/video-player', arguments: videoFile);
+    }
+  }
+
   @override
   Future<void> refresh() async => scanVideos();
 

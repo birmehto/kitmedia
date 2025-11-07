@@ -22,7 +22,6 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.io.File
-import java.io.RandomAccessFile
 
 class AndroidPlatformHandler(private val activity: Activity) {
     private val context: Context = activity.applicationContext
@@ -291,101 +290,7 @@ class AndroidPlatformHandler(private val activity: Activity) {
         }
     }
 
-    // ==================== SYSTEM UTILITIES ====================
-
-    fun isDeviceRooted(): Boolean {
-        return try {
-            val buildTags = Build.TAGS
-            if (buildTags != null && buildTags.contains("test-keys")) {
-                return true
-            }
-
-            val paths = arrayOf(
-                "/system/app/Superuser.apk",
-                "/sbin/su",
-                "/system/bin/su",
-                "/system/xbin/su",
-                "/data/local/xbin/su",
-                "/data/local/bin/su",
-                "/system/sd/xbin/su",
-                "/system/bin/failsafe/su",
-                "/data/local/su"
-            )
-
-            for (path in paths) {
-                if (File(path).exists()) return true
-            }
-
-            false
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    // ==================== PERFORMANCE ====================
-
-    fun setHighPerformanceMode(enabled: Boolean): Boolean {
-        return try {
-            if (enabled) {
-                activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            } else {
-                activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            }
-            true
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    fun getCpuUsage(): Double {
-        return try {
-            val reader = RandomAccessFile("/proc/stat", "r")
-            val load = reader.readLine()
-            reader.close()
-
-            val toks = load.split(" +".toRegex()).toTypedArray()
-            val idle1 = toks[4].toLong()
-            val cpu1 = toks[2].toLong() + toks[3].toLong() + toks[5].toLong() + 
-                      toks[6].toLong() + toks[7].toLong() + toks[8].toLong()
-
-            Thread.sleep(360)
-
-            val reader2 = RandomAccessFile("/proc/stat", "r")
-            val load2 = reader2.readLine()
-            reader2.close()
-
-            val toks2 = load2.split(" +".toRegex()).toTypedArray()
-            val idle2 = toks2[4].toLong()
-            val cpu2 = toks2[2].toLong() + toks2[3].toLong() + toks2[5].toLong() + 
-                       toks2[6].toLong() + toks2[7].toLong() + toks2[8].toLong()
-
-            ((cpu2 - cpu1).toDouble() / ((cpu2 + idle2) - (cpu1 + idle1))) * 100.0
-        } catch (e: Exception) {
-            0.0
-        }
-    }
-
-    fun getMemoryUsage(): Map<String, Long> {
-        return try {
-            val runtime = Runtime.getRuntime()
-            mapOf(
-                "totalMemory" to runtime.totalMemory(),
-                "freeMemory" to runtime.freeMemory(),
-                "maxMemory" to runtime.maxMemory(),
-                "usedMemory" to (runtime.totalMemory() - runtime.freeMemory())
-            )
-        } catch (e: Exception) {
-            emptyMap()
-        }
-    }
-
-    // ==================== UI UTILITIES ====================
-
-    fun showToast(message: String, duration: Int) {
-        activity.runOnUiThread {
-            Toast.makeText(context, message, duration).show()
-        }
-    }
+    // ==================== UI UTILITIES ==================
 
     fun vibrate(duration: Long) {
         try {

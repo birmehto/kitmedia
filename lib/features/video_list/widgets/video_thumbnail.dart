@@ -10,7 +10,7 @@ import '../../../core/utils/logger.dart';
 import '../../../core/widgets/common/loading_indicator.dart';
 import '../models/video_file.dart';
 
-class VideoThumbnail extends StatelessWidget {
+class VideoThumbnail extends StatefulWidget {
   const VideoThumbnail({
     required this.videoFile,
     this.width = 120,
@@ -24,48 +24,172 @@ class VideoThumbnail extends StatelessWidget {
   final double height;
   final double borderRadius;
 
-  String get videoPath => videoFile.path;
+  @override
+  State<VideoThumbnail> createState() => _VideoThumbnailState();
+}
 
-  Future<Uint8List?> _getCachedThumbnail() async {
+class _VideoThumbnailState extends State<VideoThumbnail>
+    with AutomaticKeepAliveClientMixin {
+  Uint8List? _cachedThumbnail;
+  bool _isLoading = false;
+  bool _hasError = false;
+  int _retryCount = 0;
+  static const int _maxRetries = 1;
+
+  @override
+  bool get wantKeepAlive => _cachedThumbnail != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(VideoThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoFile.path != widget.videoFile.path) {
+      _cachedThumbnail = null;
+      _hasError = false;
+      _loadThumbnail();
+    }
+  }
+
+  Future<void> _loadThumbnail() async {
+    if (_isLoading || !mounted) return;
+
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
     try {
-      final cacheKey = 'thumb_${videoPath.hashCode}';
-      final cacheFile = await DefaultCacheManager().getFileFromCache(cacheKey);
+      final thumbnail = await _getCachedThumbnail();
+      if (mounted) {
+        setState(() {
+          _cachedThumbnail = thumbnail;
+          _hasError = thumbnail == null;
+          _isLoading = false;
+        });
 
-      if (cacheFile?.file.existsSync() ?? false) {
-        return await cacheFile!.file.readAsBytes();
+        // Retry once if failed and haven't exceeded max retries
+        if (thumbnail == null && _retryCount < _maxRetries) {
+          _retryCount++;
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) _loadThumbnail();
+        }
       }
-
-      if (!File(videoPath).existsSync()) return null;
-
-      final thumb = await vt.VideoThumbnail.thumbnailData(
-        video: videoPath,
-        imageFormat: vt.ImageFormat.JPEG,
-        maxWidth: (width * 1.5).clamp(100.0, 800.0).toInt(),
-        maxHeight: (height * 1.5).clamp(75.0, 600.0).toInt(),
-        quality: 70,
-        timeMs: 2000,
-      ).timeout(const Duration(seconds: 8));
-
-      if (thumb != null) {
-        await DefaultCacheManager().putFile(cacheKey, thumb);
-      }
-
-      return thumb;
     } catch (e) {
-      appLog('Thumbnail error: $e');
-      return null;
+      appLog('Load thumbnail error: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
+  void dispose() {
+    _cachedThumbnail = null;
+    super.dispose();
+  }
+
+  Future<Uint8List?> _getCachedThumbnail() async {
+    final videoPath = widget.videoFile.path;
+    final cacheKey = 'thumb_${videoPath.hashCode}';
+
+    try {
+      // Check cache first
+      final cacheFile = await DefaultCacheManager().getFileFromCache(cacheKey);
+      if (cacheFile?.file.existsSync() ?? false) {
+        return await cacheFile!.file.readAsBytes();
+      }
+    } catch (e) {
+      appLog('Cache read error: $e');
+    }
+
+    // Verify file exists
+    final file = File(videoPath);
+    if (!file.existsSync()) {
+      appLog('Video file not found: $videoPath');
+      return null;
+    }
+
+    // Try to generate thumbnail with multiple fallback strategies
+    try {
+      // Strategy 1: Try with file:// URI scheme for Android
+      final uri = Platform.isAndroid && !videoPath.startsWith('file://')
+          ? 'file://$videoPath'
+          : videoPath;
+
+      final thumb =
+          await vt.VideoThumbnail.thumbnailData(
+            video: uri,
+            imageFormat: vt.ImageFormat.JPEG,
+            maxWidth: (widget.width * 1.5).clamp(100.0, 800.0).toInt(),
+            maxHeight: (widget.height * 1.5).clamp(75.0, 600.0).toInt(),
+            quality: 70,
+            timeMs: 2000,
+          ).timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              appLog('Thumbnail generation timeout for: $videoPath');
+              return null;
+            },
+          );
+
+      if (thumb != null && thumb.isNotEmpty) {
+        // Cache the thumbnail
+        try {
+          await DefaultCacheManager().putFile(cacheKey, thumb);
+        } catch (e) {
+          appLog('Cache write error: $e');
+        }
+        return thumb;
+      }
+    } catch (e) {
+      appLog('Thumbnail generation error for $videoPath: $e');
+
+      // Strategy 2: Try without URI scheme if first attempt failed
+      if (Platform.isAndroid && videoPath.startsWith('file://')) {
+        try {
+          final plainPath = videoPath.replaceFirst('file://', '');
+          final thumb = await vt.VideoThumbnail.thumbnailData(
+            video: plainPath,
+            imageFormat: vt.ImageFormat.JPEG,
+            maxWidth: (widget.width * 1.5).clamp(100.0, 800.0).toInt(),
+            maxHeight: (widget.height * 1.5).clamp(75.0, 600.0).toInt(),
+            quality: 70,
+            timeMs: 1000,
+          ).timeout(const Duration(seconds: 5));
+
+          if (thumb != null && thumb.isNotEmpty) {
+            try {
+              await DefaultCacheManager().putFile(cacheKey, thumb);
+            } catch (_) {}
+            return thumb;
+          }
+        } catch (e2) {
+          appLog('Fallback thumbnail generation failed: $e2');
+        }
+      }
+    }
+
+    return null;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
 
     return Container(
-      width: width,
-      height: height,
+      width: widget.width,
+      height: widget.height,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
         color: theme.colorScheme.surfaceContainerHighest,
         boxShadow: [
           BoxShadow(
@@ -76,40 +200,42 @@ class VideoThumbnail extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: FutureBuilder<Uint8List?>(
-          future: _getCachedThumbnail(),
-          builder: (context, snapshot) {
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildThumbnailContent(snapshot, theme),
-                _buildGradient(theme),
-                if (videoFile.duration != null) _buildDurationBadge(theme),
-              ],
-            );
-          },
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildThumbnailContent(theme),
+            if (_cachedThumbnail != null) _buildGradient(theme),
+            if (_cachedThumbnail != null && widget.videoFile.duration != null)
+              _buildDurationBadge(theme),
+            if (_isLoading) _buildLoadingOverlay(),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildThumbnailContent(
-    AsyncSnapshot<Uint8List?> snapshot,
-    ThemeData theme,
-  ) {
-    if (snapshot.connectionState == ConnectionState.waiting) {
-      return _buildLoading();
+  Widget _buildThumbnailContent(ThemeData theme) {
+    if (_cachedThumbnail != null) {
+      return Image.memory(
+        _cachedThumbnail!,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) => _buildError(theme),
+      );
     }
 
-    if (snapshot.hasError || snapshot.data == null) {
+    if (_hasError) {
       return _buildError(theme);
     }
 
-    return Image.memory(
-      snapshot.data!,
-      fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => _buildError(theme),
+    return _buildError(theme);
+  }
+
+  Widget _buildLoadingOverlay() {
+    return ColoredBox(
+      color: Colors.black.withValues(alpha: 0.3),
+      child: _buildLoading(),
     );
   }
 
@@ -142,10 +268,10 @@ class VideoThumbnail extends StatelessWidget {
           children: [
             Icon(
               Symbols.video_file_rounded,
-              size: width > 80 ? 40 : 32,
+              size: widget.width > 80 ? 40 : 32,
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
-            if (width > 80) ...[
+            if (widget.width > 80) ...[
               const SizedBox(height: 8),
               Text(
                 'No Preview',
@@ -191,10 +317,10 @@ class VideoThumbnail extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
-          videoFile.durationString,
+          widget.videoFile.durationString,
           style: TextStyle(
             color: Colors.white,
-            fontSize: width > 80 ? 11 : 9,
+            fontSize: widget.width > 80 ? 11 : 9,
             fontWeight: FontWeight.w600,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),

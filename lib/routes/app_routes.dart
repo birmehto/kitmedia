@@ -17,13 +17,13 @@ class AppRoutes {
   static List<GetPage> routes = [
     GetPage(
       name: home,
-      page: () => const VideoListScreen(),
+      page: () => VideoListScreen(),
       binding: AppBindings(),
       transition: Transition.fade,
     ),
     GetPage(
       name: videoList,
-      page: () => const VideoListScreen(),
+      page: () => VideoListScreen(),
       binding: AppBindings(),
       transition: Transition.fade,
     ),

@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
+import '../utils/logger.dart';
 
 class AppUpdateService extends GetxService {
   static AppUpdateService get to => Get.find();
@@ -59,10 +60,8 @@ class AppUpdateService extends GetxService {
       }
     } catch (e) {
       // Log error and show user-friendly message
-      Get.snackbar(
-        'update_check_failed'.tr,
+      appLog(
         'update_check_failed_message'.tr,
-        snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
       _isCheckingUpdate.value = false;
@@ -126,17 +125,13 @@ class AppUpdateService extends GetxService {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        Get.snackbar(
-          'error_occurred'.tr,
+        appLog(
           '${'open_url_error'.tr}: $url',
-          snackPosition: SnackPosition.BOTTOM,
         );
       }
     } catch (e) {
-      Get.snackbar(
-        'error_occurred'.tr,
+      appLog(
         '${'open_url_failed'.tr}: $e',
-        snackPosition: SnackPosition.BOTTOM,
       );
     }
   }

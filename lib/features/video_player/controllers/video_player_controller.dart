@@ -258,6 +258,20 @@ class VideoPlayerController extends GetxController {
     } else {
       _resetSystemUi();
     }
+    // Show controls briefly when toggling fullscreen
+    showControls();
+  }
+
+  void enterFullscreen() {
+    if (!isFullScreen.value) {
+      toggleFullscreen();
+    }
+  }
+
+  void exitFullscreen() {
+    if (isFullScreen.value) {
+      toggleFullscreen();
+    }
   }
 
   // --- Preferences ---
@@ -313,24 +327,10 @@ class VideoPlayerController extends GetxController {
         final Uint8List pngBytes = byteData.buffer.asUint8List();
         await _saveScreenshot(pngBytes);
 
-        Get.snackbar(
-          'Screenshot Saved',
-          'Video screenshot saved to gallery',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.black87,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-        );
+        appLog('Video screenshot saved to gallery');
       }
     } catch (e) {
-      Get.snackbar(
-        'Screenshot Failed',
-        'Could not save screenshot: ${e.toString()}',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+      appLog('Could not save screenshot: ${e.toString()}');
     }
   }
 

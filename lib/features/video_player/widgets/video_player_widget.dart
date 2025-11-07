@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../controllers/video_player_controller.dart';
-import 'video_playlist_widget.dart';
 
 class VideoPlayerWidget extends StatefulWidget {
   const VideoPlayerWidget({
@@ -134,16 +133,15 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
             // --- Overlay controls ---
             Obx(() {
-              if (!controller.isControlsVisible.value) {
-                return const SizedBox.shrink();
-              }
-
-              return AnimatedOpacity(
-                opacity: controller.isControlsVisible.value ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 300),
-                child: _VideoControlsOverlay(
-                  videoTitle: widget.videoTitle,
-                  controllerTag: widget.videoPath,
+              return IgnorePointer(
+                ignoring: !controller.isControlsVisible.value,
+                child: AnimatedOpacity(
+                  opacity: controller.isControlsVisible.value ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: _VideoControlsOverlay(
+                    videoTitle: widget.videoTitle,
+                    controllerTag: widget.videoPath,
+                  ),
                 ),
               );
             }),
@@ -339,6 +337,8 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
     final controller = Get.find<VideoPlayerController>(
       tag: widget.controllerTag,
     );
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -361,15 +361,17 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
           children: [
             // --- Top bar ---
             SafeArea(
+              bottom: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isLandscape ? 24 : 16,
+                  vertical: isLandscape ? 8 : 12,
                 ),
                 child: Row(
                   children: [
                     _buildControlButton(
                       icon: Symbols.arrow_back_rounded,
+                      filled: true,
                       onPressed: () {
                         if (controller.isFullScreen.value) {
                           controller.toggleFullscreen();
@@ -379,38 +381,42 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
                       },
                     ),
                     const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.videoTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
+                    if (!isLandscape)
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.videoTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                          Obx(() {
-                            if (controller.resolution.value.isNotEmpty) {
-                              return Text(
-                                controller.resolution.value,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          }),
-                        ],
-                      ),
-                    ),
+                            Obx(() {
+                              if (controller.resolution.value.isNotEmpty) {
+                                return Text(
+                                  controller.resolution.value,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            }),
+                          ],
+                        ),
+                      )
+                    else
+                      const Spacer(),
                     const SizedBox(width: 16),
                     _buildControlButton(
                       icon: Symbols.more_vert_rounded,
+                      filled: true,
                       onPressed: () => _showOptionsMenu(context, controller),
                     ),
                   ],
@@ -421,13 +427,15 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
             // --- Center controls ---
             Expanded(
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _buildSeekButton(
                     icon: Symbols.replay_10_rounded,
                     onPressed: () => controller.seekBackward(),
                   ),
+                  SizedBox(width: isLandscape ? 80 : 60),
                   Obx(() => _buildPlayPauseButton(controller)),
+                  SizedBox(width: isLandscape ? 80 : 60),
                   _buildSeekButton(
                     icon: Symbols.forward_10_rounded,
                     onPressed: () => controller.seekForward(),
@@ -437,52 +445,79 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
             ),
 
             // --- Bottom controls ---
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Progress bar with preview
-                  Obx(() => _buildProgressBar(controller)),
-                  const SizedBox(height: 16),
-                  // Control buttons row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildControlButton(
-                        icon: Symbols.skip_previous_rounded,
-                        onPressed: controller.previousVideo,
-                      ),
-                      _buildControlButton(
-                        icon: controller.isPlaying.value
-                            ? Symbols.pause_rounded
-                            : Symbols.play_arrow_rounded,
-                        onPressed: controller.togglePlay,
-                        size: 28,
-                      ),
-                      _buildControlButton(
-                        icon: Symbols.skip_next_rounded,
-                        onPressed: controller.nextVideo,
-                      ),
-                      _buildControlButton(
-                        icon: Symbols.playlist_play_rounded,
-                        onPressed: () => _showPlaylist(context),
-                      ),
-                      _buildControlButton(
-                        icon: Symbols.screenshot_rounded,
-                        onPressed: controller.takeScreenshot,
-                      ),
-                      Obx(
-                        () => _buildControlButton(
-                          icon: controller.isFullScreen.value
-                              ? Symbols.fullscreen_exit_rounded
-                              : Symbols.fullscreen_rounded,
-                          onPressed: controller.toggleFullscreen,
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  isLandscape ? 24 : 16,
+                  8,
+                  isLandscape ? 24 : 16,
+                  isLandscape ? 8 : 16,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Progress bar
+                    Obx(() => _buildProgressBar(controller)),
+                    SizedBox(height: isLandscape ? 8 : 16),
+                    // Control buttons row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (controller.playlist.isNotEmpty) ...[
+                              _buildControlButton(
+                                icon: Symbols.skip_previous_rounded,
+                                filled: true,
+                                onPressed: controller.previousVideo,
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            _buildControlButton(
+                              icon: controller.isPlaying.value
+                                  ? Symbols.pause_rounded
+                                  : Symbols.play_arrow_rounded,
+                              filled: true,
+                              onPressed: controller.togglePlay,
+                              size: 28,
+                            ),
+                            if (controller.playlist.isNotEmpty) ...[
+                              const SizedBox(width: 12),
+                              _buildControlButton(
+                                icon: Symbols.skip_next_rounded,
+                                filled: true,
+                                onPressed: controller.nextVideo,
+                              ),
+                            ],
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!isLandscape)
+                              _buildControlButton(
+                                icon: Symbols.screenshot_rounded,
+                                filled: true,
+                                onPressed: controller.takeScreenshot,
+                              ),
+                            if (!isLandscape) const SizedBox(width: 12),
+                            Obx(
+                              () => _buildControlButton(
+                                icon: controller.isFullScreen.value
+                                    ? Symbols.fullscreen_exit_rounded
+                                    : Symbols.fullscreen_rounded,
+                                filled: true,
+                                onPressed: controller.toggleFullscreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -495,20 +530,39 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
     required IconData icon,
     required VoidCallback onPressed,
     double size = 24,
+    bool filled = false,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black26,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Material(
-        color: Colors.transparent,
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(32),
         child: InkWell(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(24),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Icon(icon, color: Colors.white, size: size),
+          borderRadius: BorderRadius.circular(32),
+          splashColor: Colors.white.withValues(alpha: 0.3),
+          highlightColor: Colors.white.withValues(alpha: 0.15),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: size,
+              fill: filled ? 1 : 0,
+            ),
           ),
         ),
       ),
@@ -519,39 +573,91 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
     required IconData icon,
     required VoidCallback onPressed,
   }) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.black38,
-          borderRadius: BorderRadius.circular(32),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(48),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(48),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(48),
+          splashColor: Colors.white.withValues(alpha: 0.3),
+          highlightColor: Colors.white.withValues(alpha: 0.15),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(48),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+                width: 1.5,
+              ),
+            ),
+            child: Icon(icon, color: Colors.white, size: 40, fill: 1),
+          ),
         ),
-        child: Icon(icon, color: Colors.white, size: 32),
       ),
     );
   }
 
   Widget _buildPlayPauseButton(VideoPlayerController controller) {
-    return GestureDetector(
-      onTap: controller.togglePlay,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: controller.isPlaying.value ? Colors.black54 : Colors.white24,
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.3),
-            width: 2,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(56),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.6),
+            blurRadius: 16,
+            spreadRadius: 2,
+            offset: const Offset(0, 4),
           ),
-        ),
-        child: Icon(
-          controller.isPlaying.value
-              ? Symbols.pause_rounded
-              : Symbols.play_arrow_rounded,
-          color: Colors.white,
-          size: 40,
+        ],
+      ),
+      child: Material(
+        color: controller.isPlaying.value
+            ? Colors.white.withValues(alpha: 0.2)
+            : Colors.white.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(56),
+        child: InkWell(
+          onTap: controller.togglePlay,
+          borderRadius: BorderRadius.circular(56),
+          splashColor: Colors.white.withValues(alpha: 0.4),
+          highlightColor: Colors.white.withValues(alpha: 0.25),
+          child: Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(56),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.5),
+                width: 3,
+              ),
+              gradient: RadialGradient(
+                colors: [
+                  Colors.white.withValues(alpha: 0.1),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 1.0],
+              ),
+            ),
+            child: Icon(
+              controller.isPlaying.value
+                  ? Symbols.pause_rounded
+                  : Symbols.play_arrow_rounded,
+              color: Colors.white,
+              size: 48,
+              fill: 1,
+              weight: 300,
+            ),
+          ),
         ),
       ),
     );
@@ -568,12 +674,32 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
       children: [
         Row(
           children: [
-            Text(
-              _formatDuration(pos),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                _formatDuration(pos),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
               ),
             ),
             Expanded(
@@ -582,15 +708,21 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     activeTrackColor: Colors.white,
-                    inactiveTrackColor: Colors.white30,
+                    inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
                     thumbColor: Colors.white,
                     thumbShape: const RoundSliderThumbShape(
-                      enabledThumbRadius: 8,
+                      enabledThumbRadius: 10,
+                      elevation: 4,
+                      pressedElevation: 6,
                     ),
                     overlayShape: const RoundSliderOverlayShape(
-                      overlayRadius: 16,
+                      overlayRadius: 24,
                     ),
-                    trackHeight: 4,
+                    overlayColor: Colors.white.withValues(alpha: 0.25),
+                    trackHeight: 6,
+                    trackShape: const RoundedRectSliderTrackShape(),
+                    activeTickMarkColor: Colors.transparent,
+                    inactiveTickMarkColor: Colors.transparent,
                   ),
                   child: Slider(
                     value: progress.clamp(0.0, 1.0),
@@ -604,12 +736,32 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
                 ),
               ),
             ),
-            Text(
-              _formatDuration(dur),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                _formatDuration(dur),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
               ),
             ),
           ],
@@ -626,16 +778,6 @@ class _VideoControlsOverlayState extends State<_VideoControlsOverlay>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => _VideoOptionsSheet(controller: controller),
-    );
-  }
-
-  void _showPlaylist(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) =>
-          VideoPlaylistWidget(controllerTag: widget.controllerTag),
     );
   }
 
@@ -659,165 +801,387 @@ class _VideoOptionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.black87,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white54,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Video Options',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 16),
+              width: 48,
+              height: 5,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.4,
+                ),
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
-          ),
-          _buildOptionTile(
-            icon: Symbols.speed_rounded,
-            title: 'Playback Speed',
-            subtitle: '${controller.speed.value}x',
-            onTap: () => _showSpeedOptions(context),
-          ),
-          Obx(
-            () => _buildOptionTile(
-              icon: controller.volume.value == 0
-                  ? Symbols.volume_off_rounded
-                  : Symbols.volume_up_rounded,
-              title: 'Volume',
-              subtitle: '${(controller.volume.value * 100).round()}%',
-              onTap: () => _showVolumeSlider(context),
+
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(
+                      Symbols.settings_rounded,
+                      color: theme.colorScheme.onPrimaryContainer,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Video Options',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          _buildOptionTile(
-            icon: Symbols.info_rounded,
-            title: 'Video Info',
-            subtitle: 'Details about this video',
-            onTap: () => _showVideoInfo(context),
-          ),
-          Obx(
-            () => _buildSwitchTile(
-              icon: Symbols.loop_rounded,
-              title: 'Loop Video',
-              value: controller.loop.value,
-              onChanged: controller.setLoop,
+
+            // Options list
+            _buildOptionTile(
+              context,
+              icon: Symbols.speed_rounded,
+              title: 'Playback Speed',
+              subtitle: '${controller.speed.value}x',
+              onTap: () => _showSpeedOptions(context),
             ),
-          ),
-          Obx(
-            () => _buildSwitchTile(
-              icon: Symbols.gesture_rounded,
-              title: 'Gesture Controls',
-              value: controller.gesturesEnabled.value,
-              onChanged: controller.setGesturesEnabled,
+            Obx(
+              () => _buildOptionTile(
+                context,
+                icon: controller.volume.value == 0
+                    ? Symbols.volume_off_rounded
+                    : Symbols.volume_up_rounded,
+                title: 'Volume',
+                subtitle: '${(controller.volume.value * 100).round()}%',
+                onTap: () => _showVolumeSlider(context),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-        ],
+            _buildOptionTile(
+              context,
+              icon: Symbols.info_rounded,
+              title: 'Video Info',
+              subtitle: 'Details about this video',
+              onTap: () => _showVideoInfo(context),
+            ),
+
+            const Divider(height: 32, indent: 24, endIndent: 24),
+
+            // Switches
+            Obx(
+              () => _buildSwitchTile(
+                context,
+                icon: Symbols.loop_rounded,
+                title: 'Loop Video',
+                subtitle: 'Repeat when finished',
+                value: controller.loop.value,
+                onChanged: controller.setLoop,
+              ),
+            ),
+            Obx(
+              () => _buildSwitchTile(
+                context,
+                icon: Symbols.gesture_rounded,
+                title: 'Gesture Controls',
+                subtitle: 'Swipe to adjust volume & brightness',
+                value: controller.gesturesEnabled.value,
+                onChanged: controller.setGesturesEnabled,
+              ),
+            ),
+
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildOptionTile({
+  Widget _buildOptionTile(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.white),
-      title: Text(title, style: const TextStyle(color: Colors.white)),
-      subtitle: Text(subtitle, style: const TextStyle(color: Colors.white70)),
-      trailing: const Icon(
-        Symbols.chevron_right_rounded,
-        color: Colors.white54,
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Material(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: theme.colorScheme.onSecondaryContainer,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Symbols.chevron_right_rounded,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  size: 24,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      onTap: onTap,
     );
   }
 
-  Widget _buildSwitchTile({
+  Widget _buildSwitchTile(
+    BuildContext context, {
     required IconData icon,
     required String title,
+    required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.white),
-      title: Text(title, style: const TextStyle(color: Colors.white)),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-        activeThumbColor: Colors.white,
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Material(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: theme.colorScheme.onTertiaryContainer,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(value: value, onChanged: onChanged),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   void _showSpeedOptions(BuildContext context) {
     Navigator.pop(context);
+    final theme = Theme.of(context);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.black87,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white54,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Playback Speed',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            ...controller.speeds.map(
-              (speed) => Obx(
-                () => ListTile(
-                  title: Text(
-                    '${speed}x',
-                    style: const TextStyle(color: Colors.white),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 16),
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.4,
                   ),
-                  trailing: controller.speed.value == speed
-                      ? const Icon(Symbols.check_rounded, color: Colors.white)
-                      : null,
-                  onTap: () {
-                    controller.setSpeed(speed);
-                    Navigator.pop(context);
-                  },
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-          ],
+
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        Symbols.speed_rounded,
+                        color: theme.colorScheme.onPrimaryContainer,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'Playback Speed',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Speed options
+              ...controller.speeds.map(
+                (speed) => Obx(() {
+                  final isSelected = controller.speed.value == speed;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    child: Material(
+                      color: isSelected
+                          ? theme.colorScheme.primaryContainer
+                          : theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(16),
+                      child: InkWell(
+                        onTap: () {
+                          controller.setSpeed(speed);
+                          Navigator.pop(context);
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.secondaryContainer,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${speed}x',
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? theme.colorScheme.onPrimary
+                                          : theme
+                                                .colorScheme
+                                                .onSecondaryContainer,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  speed == 1.0
+                                      ? 'Normal'
+                                      : speed < 1.0
+                                      ? 'Slower'
+                                      : 'Faster',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? theme.colorScheme.onPrimaryContainer
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                Icon(
+                                  Symbols.check_circle_rounded,
+                                  color: theme.colorScheme.primary,
+                                  size: 28,
+                                  fill: 1,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+
+              SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
+            ],
+          ),
         ),
       ),
     );
@@ -825,61 +1189,133 @@ class _VideoOptionsSheet extends StatelessWidget {
 
   void _showVolumeSlider(BuildContext context) {
     Navigator.pop(context);
+    final theme = Theme.of(context);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.black87,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Drag handle
             Container(
               margin: const EdgeInsets.only(bottom: 24),
-              width: 40,
-              height: 4,
+              width: 48,
+              height: 5,
               decoration: BoxDecoration(
-                color: Colors.white54,
-                borderRadius: BorderRadius.circular(2),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.4,
+                ),
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
-            const Text(
-              'Volume Control',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Obx(
-              () => Row(
-                children: [
-                  Icon(
-                    controller.volume.value == 0
-                        ? Symbols.volume_off_rounded
-                        : Symbols.volume_up_rounded,
-                    color: Colors.white,
+
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  Expanded(
-                    child: Slider(
-                      value: controller.volume.value,
-                      onChanged: controller.setVolume,
-                      activeColor: Colors.white,
-                      inactiveColor: Colors.white30,
+                  child: Icon(
+                    Symbols.volume_up_rounded,
+                    color: theme.colorScheme.onPrimaryContainer,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  'Volume Control',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 40),
+
+            // Volume slider
+            Obx(() {
+              final volumeIcon = controller.volume.value == 0
+                  ? Symbols.volume_off_rounded
+                  : controller.volume.value < 0.3
+                  ? Symbols.volume_mute_rounded
+                  : controller.volume.value < 0.7
+                  ? Symbols.volume_down_rounded
+                  : Symbols.volume_up_rounded;
+
+              return Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            volumeIcon,
+                            color: theme.colorScheme.onSecondaryContainer,
+                            size: 28,
+                          ),
+                        ),
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 6,
+                              thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 12,
+                                elevation: 4,
+                              ),
+                              overlayShape: const RoundSliderOverlayShape(),
+                            ),
+                            child: Slider(
+                              value: controller.volume.value,
+                              onChanged: controller.setVolume,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${(controller.volume.value * 100).round()}%',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  Text(
-                    '${(controller.volume.value * 100).round()}%',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
+                  ],
+                ),
+              );
+            }),
+
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 32),
           ],
         ),
       ),
@@ -888,83 +1324,174 @@ class _VideoOptionsSheet extends StatelessWidget {
 
   void _showVideoInfo(BuildContext context) {
     Navigator.pop(context);
+    final theme = Theme.of(context);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.black87,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              margin: const EdgeInsets.only(bottom: 24),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white54,
-                borderRadius: BorderRadius.circular(2),
+            // Drag handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 24),
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.4,
+                  ),
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
             ),
-            const Text(
-              'Video Information',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    Symbols.info_rounded,
+                    color: theme.colorScheme.onPrimaryContainer,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  'Video Information',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
+
+            const SizedBox(height: 32),
+
+            // Info cards
             Obx(
               () => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildInfoRow(
-                    'Duration',
-                    _formatDuration(controller.duration.value),
+                  _buildInfoCard(
+                    context,
+                    icon: Symbols.schedule_rounded,
+                    label: 'Duration',
+                    value: _formatDuration(controller.duration.value),
                   ),
-                  _buildInfoRow('Resolution', controller.resolution.value),
-                  _buildInfoRow(
-                    'Aspect Ratio',
-                    '${controller.aspectRatio.value.toStringAsFixed(2)}:1',
+                  const SizedBox(height: 12),
+                  _buildInfoCard(
+                    context,
+                    icon: Symbols.high_quality_rounded,
+                    label: 'Resolution',
+                    value: controller.resolution.value.isEmpty
+                        ? 'Unknown'
+                        : controller.resolution.value,
                   ),
-                  _buildInfoRow('Current Speed', '${controller.speed.value}x'),
-                  _buildInfoRow(
-                    'Volume',
-                    '${(controller.volume.value * 100).round()}%',
+                  const SizedBox(height: 12),
+                  _buildInfoCard(
+                    context,
+                    icon: Symbols.aspect_ratio_rounded,
+                    label: 'Aspect Ratio',
+                    value:
+                        '${controller.aspectRatio.value.toStringAsFixed(2)}:1',
                   ),
-                  _buildInfoRow(
-                    'Position',
-                    _formatDuration(controller.position.value),
+                  const SizedBox(height: 12),
+                  _buildInfoCard(
+                    context,
+                    icon: Symbols.speed_rounded,
+                    label: 'Playback Speed',
+                    value: '${controller.speed.value}x',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoCard(
+                    context,
+                    icon: Symbols.volume_up_rounded,
+                    label: 'Volume',
+                    value: '${(controller.volume.value * 100).round()}%',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoCard(
+                    context,
+                    icon: Symbols.play_circle_rounded,
+                    label: 'Current Position',
+                    value: _formatDuration(controller.position.value),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
+
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 32),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+  Widget _buildInfoCard(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 16),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: theme.colorScheme.onSecondaryContainer,
+              size: 24,
+            ),
           ),
-          Text(
-            value.isEmpty ? 'Unknown' : value,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

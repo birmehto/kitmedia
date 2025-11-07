@@ -13,17 +13,12 @@ Essential scripts for Flutter development workflow.
 ## Usage
 
 ```bash
-# Start development
-./scripts/run_dev.sh
 
 # Clean build
 ./scripts/flutter_clean_build.sh
 
 # Build release
 ./scripts/build_release.sh
-
-# Check code quality
-./scripts/code_quality.sh
 
 # Upgrade version (patch by default)
 ./scripts/version_upgrade.sh

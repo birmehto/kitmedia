@@ -7,6 +7,7 @@ import 'app_binding.dart';
 import 'core/config/app_config.dart';
 import 'core/localization/app_translations.dart';
 import 'core/services/app_initialization_service.dart';
+import 'core/services/intent_handler_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/settings/controllers/language_controller.dart';
 import 'features/settings/controllers/theme_controller.dart';
@@ -25,6 +26,9 @@ void main() async {
   // Initialize controllers
   Get.put(ThemeController(), permanent: true);
   Get.put(LanguageController(), permanent: true);
+
+  // Initialize intent handler for receiving shared videos
+  await Get.putAsync(() => IntentHandlerService().init(), permanent: true);
 
   runApp(const KitMediaApp());
 }
@@ -56,7 +60,6 @@ class KitMediaApp extends StatelessWidget {
               getPages: AppRoutes.routes,
               initialBinding: AppBindings(),
               debugShowCheckedModeBanner: false,
-              // Enhanced navigation with Material 3 expressive theming
               builder: (context, child) {
                 if (child == null) return const SizedBox.shrink();
                 return MediaQuery(

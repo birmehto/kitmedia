@@ -8,18 +8,38 @@ import android.os.Environment
 import android.provider.Settings
 import android.widget.Toast
 import androidx.annotation.NonNull
+import com.example.kitmedia.VideoOperationsPlugin
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.kitmedia.player/android"
+    private val INTENT_CHANNEL = "com.kitmedia.player/intent"
     private lateinit var androidPlatformHandler: AndroidPlatformHandler
+    private var sharedVideoPath: String? = null
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
+        // Handle incoming intent
+        handleIntent(intent)
+        
+        // Register the video operations plugin
+        flutterEngine.plugins.add(VideoOperationsPlugin())
+        
         androidPlatformHandler = AndroidPlatformHandler(this)
+        
+        // Setup intent channel for receiving shared videos
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, INTENT_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getSharedVideo" -> {
+                    result.success(sharedVideoPath)
+                    sharedVideoPath = null // Clear after reading
+                }
+                else -> result.notImplemented()
+            }
+        }
         
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -65,34 +85,6 @@ class MainActivity: FlutterActivity() {
                 "requestManageExternalStoragePermission" -> {
                     result.success(androidPlatformHandler.requestManageExternalStoragePermission())
                 }
-                "getAndroidVersion" -> {
-                    result.success(Build.VERSION.SDK_INT)
-                }
-                "isDeviceRooted" -> {
-                    result.success(androidPlatformHandler.isDeviceRooted())
-                }
-                "getDeviceManufacturer" -> {
-                    result.success(Build.MANUFACTURER)
-                }
-                "getDeviceModel" -> {
-                    result.success(Build.MODEL)
-                }
-                "setHighPerformanceMode" -> {
-                    val enabled = call.argument<Boolean>("enabled") ?: false
-                    result.success(androidPlatformHandler.setHighPerformanceMode(enabled))
-                }
-                "getCpuUsage" -> {
-                    result.success(androidPlatformHandler.getCpuUsage())
-                }
-                "getMemoryUsage" -> {
-                    result.success(androidPlatformHandler.getMemoryUsage())
-                }
-                "showToast" -> {
-                    val message = call.argument<String>("message") ?: ""
-                    val duration = call.argument<Int>("duration") ?: Toast.LENGTH_SHORT
-                    androidPlatformHandler.showToast(message, duration)
-                    result.success(null)
-                }
                 "vibrate" -> {
                     val duration = call.argument<Int>("duration") ?: 100
                     androidPlatformHandler.vibrate(duration.toLong())
@@ -112,6 +104,55 @@ class MainActivity: FlutterActivity() {
                     result.notImplemented()
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+
+        when (intent.action) {
+            Intent.ACTION_VIEW, Intent.ACTION_SEND -> {
+                val uri = if (intent.action == Intent.ACTION_SEND) {
+                    intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                } else {
+                    intent.data
+                }
+
+                uri?.let {
+                    sharedVideoPath = getPathFromUri(it)
+                    // Notify Flutter about the new video
+                    flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                        MethodChannel(messenger, INTENT_CHANNEL).invokeMethod("onVideoReceived", sharedVideoPath)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun getPathFromUri(uri: Uri): String? {
+        return when (uri.scheme) {
+            "file" -> uri.path
+            "content" -> {
+                try {
+                    val cursor = contentResolver.query(uri, arrayOf(android.provider.MediaStore.Video.Media.DATA), null, null, null)
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val columnIndex = it.getColumnIndexOrThrow(android.provider.MediaStore.Video.Media.DATA)
+                            return it.getString(columnIndex)
+                        }
+                    }
+                    // Fallback: return URI as string
+                    uri.toString()
+                } catch (e: Exception) {
+                    uri.toString()
+                }
+            }
+            else -> uri.toString()
         }
     }
 }
