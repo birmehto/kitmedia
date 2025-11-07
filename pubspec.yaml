@@ -27,9 +27,7 @@ dependencies:
   # File & Storage
   external_path: ^2.2.0
   mime: ^2.0.0
-  file_picker: ^10.3.3
-  open_filex: ^4.7.0
-  path: ^1.9.0
+  path: ^1.9.1
   
   # UI & Design
   material_symbols_icons: ^4.2874.0
@@ -41,30 +39,17 @@ dependencies:
   device_info_plus: ^12.2.0
   package_info_plus: ^9.0.0
   url_launcher: ^6.3.2
-  share_plus: ^12.0.1
   connectivity_plus: ^7.0.0
-  
-  # Biometrics & Security
-  local_auth: ^3.0.0
-  flutter_secure_storage: ^9.2.4
-  
+
   # Media Processing
   image: ^4.5.4
-  
-  # Performance & Monitoring
-  flutter_displaymode: ^0.7.0
-  battery_plus: ^7.0.0
-  
+
   # Networking & Downloads
   dio: ^5.9.0
   dio_cache_interceptor: ^4.0.5
   
-  # Animations & Gestures
-  flutter_staggered_animations: ^1.1.1
-  flutter_animate: ^4.5.2
   
   # Internationalization
-  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
@@ -73,3 +58,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/

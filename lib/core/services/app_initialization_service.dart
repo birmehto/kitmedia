@@ -148,28 +148,6 @@ class AppInitializationService extends GetxService {
       await storage.saveUserPreference(StorageKeys.languageCode, 'en');
       await storage.saveUserPreference(StorageKeys.dynamicColors, true);
 
-      // Set default playback settings
-      await storage.saveUserPreference(StorageKeys.autoPlay, true);
-      await storage.saveUserPreference(StorageKeys.loopVideo, false);
-      await storage.saveUserPreference(StorageKeys.playbackSpeed, 1.0);
-      await storage.saveUserPreference(StorageKeys.skipDuration, 10);
-      await storage.saveUserPreference(StorageKeys.defaultVolume, 1.0);
-      await storage.saveUserPreference(StorageKeys.defaultBrightness, 0.5);
-
-      // Set default storage settings
-      await storage.saveUserPreference(StorageKeys.cacheEnabled, true);
-      await storage.saveUserPreference(StorageKeys.maxCacheSize, 500);
-      await storage.saveUserPreference(StorageKeys.autoDelete, false);
-      await storage.saveUserPreference(StorageKeys.autoDeleteDays, 7);
-
-      // Set default privacy settings
-      await storage.saveUserPreference(StorageKeys.analyticsEnabled, false);
-      await storage.saveUserPreference(StorageKeys.crashReporting, true);
-      await storage.saveUserPreference(StorageKeys.usageStats, false);
-      await storage.saveUserPreference(StorageKeys.locationAccess, false);
-      await storage.saveUserPreference(StorageKeys.biometricLock, false);
-      await storage.saveUserPreference(StorageKeys.incognitoMode, false);
-
       // Mark first launch as complete
       await storage.saveAppSetting(StorageKeys.firstLaunch, false);
 

@@ -13,16 +13,13 @@ class AppearanceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final LanguageController languageController =
-        Get.find<LanguageController>();
-
     return SettingsSection(
       title: 'appearance'.tr,
       icon: Symbols.palette_rounded,
       children: [
         // Language Setting
-        Obx(
-          () => SettingsTile(
+        GetBuilder<LanguageController>(
+          builder: (languageController) => SettingsTile(
             icon: Symbols.translate_rounded,
             title: 'language'.tr,
             subtitle: languageController.getLanguageName(
@@ -89,18 +86,29 @@ class AppearanceSection extends StatelessWidget {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: controller.supportedLocales
-              .map(
-                (locale) => _buildLanguageOption(
-                  context,
-                  controller,
-                  locale,
-                  controller.getLanguageDisplayName(locale.languageCode),
-                ),
-              )
-              .toList(),
+        content: GetBuilder<LanguageController>(
+          builder: (ctrl) => RadioGroup<Locale>(
+            groupValue: ctrl.locale,
+            onChanged: (value) {
+              if (value != null) {
+                ctrl.setLanguage(value);
+                Navigator.pop(context);
+              }
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: controller.supportedLocales
+                  .map(
+                    (locale) => _buildLanguageOption(
+                      context,
+                      controller,
+                      locale,
+                      controller.getLanguageDisplayName(locale.languageCode),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
         ),
         actions: [
           OutlinedButton(
@@ -118,17 +126,26 @@ class AppearanceSection extends StatelessWidget {
     Locale locale,
     String title,
   ) {
-    return Obx(() {
-      final isSelected = controller.locale == locale;
-      return ListTile(
-        title: Text(title),
-        leading: isSelected ? const Icon(Symbols.check) : null,
-        onTap: () {
-          controller.setLanguage(locale);
-          Navigator.pop(context);
-        },
-      );
-    });
+    return GetBuilder<LanguageController>(
+      builder: (ctrl) {
+        final isSelected = ctrl.locale == locale;
+        final theme = Theme.of(context);
+        return RadioListTile<Locale>(
+          value: locale,
+          title: Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface,
+            ),
+          ),
+          activeColor: theme.colorScheme.primary,
+          controlAffinity: ListTileControlAffinity.trailing,
+        );
+      },
+    );
   }
 
   void _showThemeDialog(BuildContext context, ThemeController controller) {
@@ -160,31 +177,42 @@ class AppearanceSection extends StatelessWidget {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildThemeOption(
-              context,
-              controller,
-              ThemeMode.light,
-              'light_theme'.tr,
-              Symbols.light_mode_rounded,
+        content: GetBuilder<ThemeController>(
+          builder: (ctrl) => RadioGroup<ThemeMode>(
+            groupValue: ctrl.themeMode,
+            onChanged: (value) {
+              if (value != null) {
+                ctrl.setTheme(value);
+                Navigator.pop(context);
+              }
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildThemeOption(
+                  context,
+                  controller,
+                  ThemeMode.light,
+                  'light_theme'.tr,
+                  Symbols.light_mode_rounded,
+                ),
+                _buildThemeOption(
+                  context,
+                  controller,
+                  ThemeMode.dark,
+                  'dark_theme'.tr,
+                  Symbols.dark_mode_rounded,
+                ),
+                _buildThemeOption(
+                  context,
+                  controller,
+                  ThemeMode.system,
+                  'system_theme'.tr,
+                  Symbols.brightness_auto_rounded,
+                ),
+              ],
             ),
-            _buildThemeOption(
-              context,
-              controller,
-              ThemeMode.dark,
-              'dark_theme'.tr,
-              Symbols.dark_mode_rounded,
-            ),
-            _buildThemeOption(
-              context,
-              controller,
-              ThemeMode.system,
-              'system_theme'.tr,
-              Symbols.brightness_auto_rounded,
-            ),
-          ],
+          ),
         ),
         actions: [
           OutlinedButton(
@@ -205,47 +233,44 @@ class AppearanceSection extends StatelessWidget {
   ) {
     final theme = Theme.of(context);
 
-    return Obx(() {
-      final isSelected = controller.themeMode == themeMode;
-      return ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(UIConstants.spacingSmall),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? theme.colorScheme.primaryContainer
-                : theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.5,
-                  ),
-            borderRadius: BorderRadius.circular(UIConstants.borderRadiusSmall),
+    return GetBuilder<ThemeController>(
+      builder: (ctrl) {
+        final isSelected = ctrl.themeMode == themeMode;
+        return RadioListTile<ThemeMode>(
+          value: themeMode,
+          secondary: Container(
+            padding: const EdgeInsets.all(UIConstants.spacingSmall),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? theme.colorScheme.primaryContainer
+                  : theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
+                    ),
+              borderRadius: BorderRadius.circular(
+                UIConstants.borderRadiusSmall,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: isSelected
+                  ? theme.colorScheme.onPrimaryContainer
+                  : theme.colorScheme.onSurfaceVariant,
+              size: UIConstants.iconSizeMedium,
+            ),
           ),
-          child: Icon(
-            icon,
-            color: isSelected
-                ? theme.colorScheme.onPrimaryContainer
-                : theme.colorScheme.onSurfaceVariant,
-            size: UIConstants.iconSizeMedium,
+          title: Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface,
+            ),
           ),
-        ),
-        title: Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurface,
-          ),
-        ),
-        trailing: isSelected
-            ? Icon(
-                Symbols.check_circle_rounded,
-                color: theme.colorScheme.primary,
-              )
-            : null,
-        onTap: () {
-          controller.setTheme(themeMode);
-          Navigator.pop(context);
-        },
-      );
-    });
+          activeColor: theme.colorScheme.primary,
+          controlAffinity: ListTileControlAffinity.trailing,
+        );
+      },
+    );
   }
 }

@@ -46,13 +46,10 @@ class UnifiedVideoCard extends StatelessWidget {
   Widget _buildListLayout(ThemeData theme) {
     return Row(
       children: [
-        Hero(
-          tag: 'thumbnail_${video.id}',
-          child: VideoThumbnail(
-            videoFile: video,
-            width: UIConstants.videoThumbnailWidth,
-            height: UIConstants.videoThumbnailHeight,
-          ),
+        VideoThumbnail(
+          videoFile: video,
+          width: UIConstants.videoThumbnailWidth,
+          height: UIConstants.videoThumbnailHeight,
         ),
         const SizedBox(width: UIConstants.spacingXLarge),
         Expanded(
@@ -102,10 +99,7 @@ class UnifiedVideoCard extends StatelessWidget {
               Positioned.fill(
                 child: Padding(
                   padding: const EdgeInsets.all(UIConstants.spacingMedium),
-                  child: Hero(
-                    tag: 'thumbnail_${video.id}',
-                    child: VideoThumbnail(videoFile: video),
-                  ),
+                  child: VideoThumbnail(videoFile: video),
                 ),
               ),
               if (showQualityBadge)

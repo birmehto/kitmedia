@@ -315,37 +315,4 @@ class StorageKeys {
   static const String themeMode = 'theme_mode';
   static const String languageCode = 'language_code';
   static const String dynamicColors = 'dynamic_colors';
-
-  // Playback Settings
-  static const String autoPlay = 'auto_play';
-  static const String loopVideo = 'loop_video';
-  static const String playbackSpeed = 'playback_speed';
-  static const String skipDuration = 'skip_duration';
-  static const String defaultVolume = 'default_volume';
-  static const String defaultBrightness = 'default_brightness';
-
-  // Storage Settings
-  static const String cacheEnabled = 'cache_enabled';
-  static const String maxCacheSize = 'max_cache_size';
-  static const String autoDelete = 'auto_delete';
-  static const String autoDeleteDays = 'auto_delete_days';
-
-  // Privacy Settings
-  static const String analyticsEnabled = 'analytics_enabled';
-  static const String crashReporting = 'crash_reporting';
-  static const String usageStats = 'usage_stats';
-  static const String locationAccess = 'location_access';
-  static const String biometricLock = 'biometric_lock';
-  static const String incognitoMode = 'incognito_mode';
-
-  // Cache Data
-  static const String videoThumbnails = 'video_thumbnails';
-  static const String videoMetadata = 'video_metadata';
-  static const String recentFiles = 'recent_files';
-  static const String favoriteVideos = 'favorite_videos';
-
-  // Secure Data
-  static const String userCredentials = 'user_credentials';
-  static const String encryptionKeys = 'encryption_keys';
-  static const String biometricData = 'biometric_data';
 }

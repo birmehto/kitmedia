@@ -68,6 +68,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   @override
   Widget build(BuildContext context) {
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Obx(() {
@@ -79,20 +82,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           );
         }
 
-        final fullScreen = _controller.isFullScreen.value;
+        final fullScreen = _controller.isFullScreen.value || isLandscape;
 
         final overlayStyle = SystemUiOverlayStyle.light.copyWith(
           statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
           systemNavigationBarColor: fullScreen
               ? Colors.transparent
               : Colors.black,
+          systemNavigationBarIconBrightness: Brightness.light,
         );
 
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: overlayStyle,
           child: SafeArea(
-            top: false,
-            bottom: false,
+            top: !fullScreen,
+            bottom: !fullScreen,
             child: RepaintBoundary(
               key: _screenshotKey,
               child: VideoPlayerWidget(

@@ -50,20 +50,9 @@ class VideoScanner {
     '.mkv',
     '.mov',
     '.wmv',
-    '.flv',
     '.webm',
     '.m4v',
     '.3gp',
-    '.3g2',
-    '.f4v',
-    '.asf',
-    '.rm',
-    '.rmvb',
-    '.vob',
-    '.ogv',
-    '.gif',
-    '.qt',
-    '.mxf',
   ];
 
   /// Main entry point
@@ -176,7 +165,7 @@ class VideoScanner {
     final rootDir = Directory(root);
 
     if (!rootDir.existsSync()) return videos;
-    final skipDirs = {'proc', 'sys', 'dev', 'lost+found'};
+    final skipDirs = {'proc', 'sys', 'dev', 'lost+found',};
 
     Future<void> walk(Directory dir) async {
       try {

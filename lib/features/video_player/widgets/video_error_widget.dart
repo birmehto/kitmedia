@@ -14,136 +14,144 @@ class VideoErrorWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return ColoredBox(
-      color: Colors.black,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.red.withValues(alpha: 0.3),
-                    width: 2,
+      color: theme.colorScheme.surface,
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Error icon
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.error.withValues(alpha: 0.2),
+                        blurRadius: 24,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Symbols.error_rounded,
+                    color: theme.colorScheme.error,
+                    size: 64,
+                    fill: 1,
                   ),
                 ),
-                child: const Icon(
-                  Symbols.error_rounded,
-                  color: Colors.red,
-                  size: 48,
-                ),
-              ),
-              const SizedBox(height: 32),
-              const Text(
-                'Video Player Error',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
-                  ),
-                ),
-                child: Text(
-                  _getErrorMessage(error),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                    height: 1.4,
+
+                const SizedBox(height: 32),
+
+                // Title
+                Text(
+                  'Video Player Error',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                   textAlign: TextAlign.center,
                 ),
-              ),
-              if (_shouldShowTroubleshootingTips(error)) ...[
-                const SizedBox(height: 24),
-                _buildTroubleshootingTips(error),
-              ],
-              const SizedBox(height: 40),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_shouldShowRetry(error)) ...[
-                    _buildActionButton(
-                      icon: Symbols.refresh_rounded,
-                      label: 'Retry',
-                      onPressed: onRetry,
-                      isPrimary: true,
-                    ),
-                    const SizedBox(width: 16),
-                  ],
-                  _buildActionButton(
-                    icon: Symbols.arrow_back_rounded,
-                    label: 'Go Back',
-                    onPressed: () => Get.back(),
-                    isPrimary: false,
+
+                const SizedBox(height: 16),
+
+                // Error message card
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
                   ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Symbols.info_rounded,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          _getErrorMessage(error),
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            height: 1.5,
+                          ),
+                          textAlign: TextAlign.left,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (_shouldShowTroubleshootingTips(error)) ...[
+                  const SizedBox(height: 24),
+                  _buildTroubleshootingTips(context, error),
                 ],
-              ),
-            ],
+
+                const SizedBox(height: 40),
+
+                // Action buttons
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    if (_shouldShowRetry(error))
+                      _buildActionButton(
+                        context,
+                        icon: Symbols.refresh_rounded,
+                        label: 'Retry',
+                        onPressed: onRetry,
+                        isPrimary: true,
+                      ),
+                    _buildActionButton(
+                      context,
+                      icon: Symbols.arrow_back_rounded,
+                      label: 'Go Back',
+                      onPressed: () => Get.back(),
+                      isPrimary: false,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildActionButton({
+  Widget _buildActionButton(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required VoidCallback onPressed,
     required bool isPrimary,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isPrimary ? Colors.white : Colors.transparent,
-        borderRadius: BorderRadius.circular(25),
-        border: isPrimary
-            ? null
-            : Border.all(
-                color: Colors.white.withValues(alpha: 0.7),
-                width: 1.5,
-              ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(25),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  color: isPrimary ? Colors.black : Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isPrimary ? Colors.black : Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
+    if (isPrimary) {
+      return FilledButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 20),
+        label: Text(label),
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+          elevation: 2,
         ),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
       ),
     );
   }
@@ -184,55 +192,69 @@ class VideoErrorWidget extends StatelessWidget {
         !error.contains('not supported');
   }
 
-  Widget _buildTroubleshootingTips(String error) {
+  Widget _buildTroubleshootingTips(BuildContext context, String error) {
+    final theme = Theme.of(context);
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+        color: theme.colorScheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.tertiary.withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Symbols.lightbulb_rounded, color: Colors.amber, size: 24),
-              SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.tertiary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Symbols.lightbulb_rounded,
+                  color: theme.colorScheme.onTertiary,
+                  size: 24,
+                  fill: 1,
+                ),
+              ),
+              const SizedBox(width: 12),
               Text(
                 'Troubleshooting Tips',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onTertiaryContainer,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           ..._getTroubleshootingTips(error).map(
             (tip) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    margin: const EdgeInsets.only(top: 6),
-                    width: 4,
-                    height: 4,
-                    decoration: const BoxDecoration(
-                      color: Colors.amber,
+                    margin: const EdgeInsets.only(top: 8),
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.tertiary,
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       tip,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                        height: 1.4,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        height: 1.5,
+                        color: theme.colorScheme.onTertiaryContainer,
                       ),
                     ),
                   ),
